@@ -1,4 +1,4 @@
-import numpy as N
+import numpy as np
 
 # 2013-10-31 Added MultiRate class, simplified fitting methods, removed full_output parameter
 # 2014-12-18 Add loading of Frequency, Integration time and Iterations, calculate lower
@@ -8,17 +8,17 @@ import numpy as N
 
 def concentrationD2(temp, Paml22PT, PamlSIS=0., f_D2_22PT=56):
     k_B = 1.3806488e-23
-    return (Paml22PT*f_D2_22PT + PamlSIS*1.4)/k_B/N.sqrt(300*temp)/10000
+    return (Paml22PT*f_D2_22PT + PamlSIS*1.4)/k_B/np.sqrt(300*temp)/10000
 
 def concentrationH2(temp, Paml22PT, PamlSIS, f_H2_22PT=38.2):
     k_B = 1.3806488e-23
-    return (Paml22PT*f_H2_22PT + PamlSIS*1.4)/k_B/N.sqrt(300*temp)/10000
+    return (Paml22PT*f_H2_22PT + PamlSIS*1.4)/k_B/np.sqrt(300*temp)/10000
 
 def concentrationHe(temp, Paml22PT, PamlSIS, f_He_22PT=140.):
     k_B = 1.3806488e-23
     #f_22PT = 140.      # calibration from 2013-02-22
     f_SIS = 5.          # rough estimate, mostly negligible
-    return (Paml22PT*f_He_22PT + PamlSIS*f_SIS)/k_B/N.sqrt(300*temp)/10000
+    return (Paml22PT*f_He_22PT + PamlSIS*f_SIS)/k_B/np.sqrt(300*temp)/10000
 
 class Rate:
     def __init__(self, fname, full_data=False, skip_iter=[]):
@@ -61,8 +61,8 @@ class Rate:
 
             if toks[0] == "Time":
                 state = 1
-                time = N.zeros(npoints)
-                data = N.zeros((nions, npoints, self.niter))
+                time = np.zeros(npoints)
+                data = np.zeros((nions, npoints, self.niter))
                 if len(ioniter) != nions:
                     print("Corrupt file", fname, "Iterations for all species not recorded")
                     while len(ioniter) < nions:
@@ -105,7 +105,7 @@ class Rate:
                 data[:, pointno, iterno] = [float(x) for x in toks][1:-1]
                 pointno += 1
 
-        ioniter = N.array(ioniter)
+        ioniter = np.array(ioniter)
         # in case of multiple measurements per iteration
         if iterno+1 != self.niter:
             if self.niter % (iterno+1) != 0:
@@ -114,7 +114,7 @@ class Rate:
                 if iterno+1 < self.niter:
                     data = data[:,:,:iterno+1]
                 else:
-                    newdata = N.zeros((nions, npoints, iterno+1))
+                    newdata = np.zeros((nions, npoints, iterno+1))
                     newdata[:,:,:self.niter] = data
                     print(data, newdata)
                     data = newdata
@@ -124,10 +124,10 @@ class Rate:
                 #raise IOError(msg)
             data = data[:,:,:iterno+1]
         
-        #print skip_iter, N.shape(skip_iter)
+        #print skip_iter, np.shape(skip_iter)
         if len(skip_iter)!=0:
-            skip_iter = N.array(skip_iter)
-            indices = N.ones(self.niter, dtype=bool)
+            skip_iter = np.array(skip_iter)
+            indices = np.ones(self.niter, dtype=bool)
             indices[skip_iter] = False
             data = data[:,:,indices]
 
@@ -144,73 +144,73 @@ class Rate:
         self.mask = None
 
     def average(self):
-        data_mean = N.mean(self.data, axis=2)
-        data_std = N.std(self.data, axis=2)/N.sqrt(self.niter)
+        data_mean = np.mean(self.data, axis=2)
+        data_std = np.std(self.data, axis=2)/np.sqrt(self.niter)
 
-        #print(N.shape(self.data), N.shape(data_mean), N.shape(self.total_iterations))
+        #print(np.shape(self.data), np.shape(data_mean), np.shape(self.total_iterations))
         data_counts = data_mean*self.total_iterations
         # divide by sqrt(total_iterations) twice - once to get Poisson
         # variance of measured data and once to the error of estimated mean
         # this should be verified, but it is in agreement with errors obtained
         # by treating data as normal variables for large numbers
-        data_poiss_err = N.sqrt(N.maximum(data_counts, 3))/self.total_iterations
+        data_poiss_err = np.sqrt(np.maximum(data_counts, 3))/self.total_iterations
         # we assume that if 0 counts are observed, 3 counts is within confidence interval
 
         # we use std error if it is larger than poisson error to capture other sources
         # of error e.g. fluctuations
-        data_std = N.maximum(data_std, data_poiss_err)
+        data_std = np.maximum(data_std, data_poiss_err)
 
         self.data_mean = data_mean
         self.data_std = data_std
 
     def merge(self, rate2):
-        self.data_mean = N.concatenate((self.data_mean, rate2.data_mean), axis=1)
-        self.data_std = N.concatenate((self.data_std, rate2.data_std), axis=1)
-        self.time = N.concatenate((self.time, rate2.time), axis=0)
+        self.data_mean = np.concatenate((self.data_mean, rate2.data_mean), axis=1)
+        self.data_std = np.concatenate((self.data_std, rate2.data_std), axis=1)
+        self.time = np.concatenate((self.time, rate2.time), axis=0)
         #print " ** merging ** "
         #print self.data_mean, self.data_std, self.time
 
 
 
     def poisson_test1(self):
-        shape = N.shape(self.data_mean)
+        shape = np.shape(self.data_mean)
         #check only H- XXX
         shape = (1, shape[1])
-        pval = N.zeros(shape)
+        pval = np.zeros(shape)
         for specno in range(shape[0]):
             for pointno in range(shape[1]):
                 if self.mask != None:
                     dataline = self.data[specno, pointno, self.mask[specno, pointno, :]]
                 else:
                     dataline = self.data[specno, pointno, :]
-                mean = N.mean(dataline)
-                Q = N.sum((dataline-mean)**2)/mean
-                niter = len(dataline[~N.isnan(dataline)])
+                mean = np.mean(dataline)
+                Q = np.sum((dataline-mean)**2)/mean
+                niter = len(dataline[~np.isnan(dataline)])
                 dof = niter-1
                 from scipy.stats import chi2
                 chi = chi2.cdf(Q, dof)
                 if chi > 0.5: pval[specno, pointno] = (1-chi)*2
                 else: pval[specno, pointno] = chi*2
                 print((chi, Q, pval[specno, pointno]))
-        return N.min(pval)
+        return np.min(pval)
 
 
     def cut3sigma(self, nsigma=3):
-        shape = N.shape(self.data)
-        self.mask = N.zeros(shape, dtype=bool)
+        shape = np.shape(self.data)
+        self.mask = np.zeros(shape, dtype=bool)
         for specno in range(shape[0]):
             for pointno in range(shape[1]):
-                stddev = self.data_std[specno, pointno]*N.sqrt(self.niter)
+                stddev = self.data_std[specno, pointno]*np.sqrt(self.niter)
                 low = self.data_mean[specno, pointno] - nsigma*stddev
                 high = self.data_mean[specno, pointno] + nsigma*stddev
                 dataline = self.data[specno, pointno, :]
                 mask = (dataline > low) & (dataline < high)
                 #self.data[specno, pointno, ~mask] = float("nan")
                 self.mask[specno, pointno, :] = mask
-                self.data_mean[specno, pointno] = N.mean(dataline[mask])
-                self.data_std[specno, pointno] = N.std(dataline[mask])/N.sqrt(self.niter)
-        #data_mean = N.mean(self.data[self.mask], axis=2)
-        #data_std = N.std(self.data, axis=2)/N.sqrt(self.niter)
+                self.data_mean[specno, pointno] = np.mean(dataline[mask])
+                self.data_std[specno, pointno] = np.std(dataline[mask])/np.sqrt(self.niter)
+        #data_mean = np.mean(self.data[self.mask], axis=2)
+        #data_std = np.std(self.data, axis=2)/np.sqrt(self.niter)
         #print self.data_mean, self.data_std
 
         #self.data[self.data<120] = 130
@@ -219,11 +219,11 @@ class Rate:
             _errfunc = errfunc
         else:
             def _errfunc(p, *args):
-                penalty = [weight*(N.fmax(lo-pp, 0) + N.fmax(0, pp-hi))\
+                penalty = [weight*(np.fmax(lo-pp, 0) + np.fmax(0, pp-hi))\
                         for pp, (lo, hi, weight) in zip(p, bounds)]
                 residuals = errfunc(p, *args)
-                #print("residuals:", N.sum(penalty**2), N.sum(residuals**2))
-                return N.hstack((residuals, penalty))
+                #print("residuals:", np.sum(penalty**2), np.sum(residuals**2))
+                return np.hstack((residuals, penalty))
 
         from scipy.optimize import leastsq
         p, cov_p, info, mesg, ier \
@@ -233,14 +233,14 @@ class Rate:
             msg = "ier"+str(ier) + " Optimal parameters not found: " + mesg
             raise RuntimeError(msg)
         if cov_p is None:
-            return p, 1./N.zeros_like(p), 0.
+            return p, 1./np.zeros_like(p), 0.
             raise RuntimeError("Optimal parameters not found: Covariance is None")
-        if any(N.diag(cov_p) < 0):
+        if any(np.diag(cov_p) < 0):
             raise RuntimeError("Optimal parameters not found: negative variance")
         
-        chisq = N.dot(info["fvec"], info["fvec"])
+        chisq = np.dot(info["fvec"], info["fvec"])
         dof = len(info["fvec"]) - len(p)
-        sigma = N.array([N.sqrt(cov_p[i,i])*N.sqrt(chisq/dof) for i in range(len(p))])
+        sigma = np.array([np.sqrt(cov_p[i,i])*np.sqrt(chisq/dof) for i in range(len(p))])
 
         Q = chisq/dof
         from scipy.stats import chi2
@@ -256,14 +256,14 @@ class Rate:
             sigma_min = 0.02
             retval = (fitfunc(p, x)-y[columns,:])/\
                 (xerr[columns,:] + sigma_min)
-            #print(p, np.sum(retval**2))
+            print(p, np.sum(retval**2))
             return retval.ravel()
         args=(self.time[mask], self.data_mean[:,mask], self.data_std[:,mask])
         return self.fitter(p0, errfunc, args)
 
 
     def fit_decay(self, p0=[60.0, .1], columns=0, mask=slice(None)):
-        fitfunc = lambda p, x: p[0]*N.exp(-x*p[1])
+        fitfunc = lambda p, x: p[0]*np.exp(-x*p[1])
         return self._fit(fitfunc, p0, columns, mask)
 
     def fit_ode_mpmath(self, p0=[60.0, .1], columns=0):
@@ -272,7 +272,7 @@ class Rate:
             eqn = lambda x, y: -p[1]*y
             y0 = p[0]
             f = odefun(eqn, 0, y0)
-            g = N.vectorize(lambda x: float(f(x)))
+            g = np.vectorize(lambda x: float(f(x)))
             return g(x)
 
         return self._fit(fitfunc, p0, columns)
@@ -283,41 +283,41 @@ class Rate:
         def fitfunc(p, x):
             eqn = lambda y, x: -p[1]*y
             y0 = p[0]
-            t = N.r_[0., x]
+            t = np.r_[0., x]
             y = odeint(eqn, y0, t)
             return y[1:,0]
         return self._fit(fitfunc, p0, columns)
 
 
     def fit_inc(self, p0=[1.0, .01, 0.99], columns=1):
-        #fitfuncinc = lambda p, x: p[0]*(1-N.exp(-x/p[1]))+p[2]
-        fitfunc = lambda p, x: -abs(p[0])*N.exp(-x/abs(p[1]))+abs(p[2])
+        #fitfuncinc = lambda p, x: p[0]*(1-np.exp(-x/p[1]))+p[2]
+        fitfunc = lambda p, x: -abs(p[0])*np.exp(-x/abs(p[1]))+abs(p[2])
         return self._fit(fitfunc, p0, columns)
     
     def fit_equilib(self, p0=[70.0, .1, 1], columns=0):
-        fitfunc = lambda p, x: abs(p[0])*N.exp(-x/abs(p[1]))+abs(p[2])
+        fitfunc = lambda p, x: abs(p[0])*np.exp(-x/abs(p[1]))+abs(p[2])
         return self._fit(fitfunc, p0, columns)
 
     def fitspecial(self, p0, columns=[0,1]):
         def fitfuncspec(self, p, t):
             #KfKb = p[0]/p[1]*p[3]
-            #y0 = (p[0] - p[1])*N.exp(-KfKb *(t-p[4])) + p[1]
-            #y1 = p[0] - ((p[0] - p[1])*N.exp(-KfKb *(t-p[4])) + p[1])
-            #y0 = (p[0] - p[1])*N.exp(-(p[2]+p[3])*(t-p[4])) + p[1]
-            #y1 = p[0] - ((p[0] - p[1])*N.exp(-(p[2]+p[3])*(t-p[4])) + p[1])
+            #y0 = (p[0] - p[1])*np.exp(-KfKb *(t-p[4])) + p[1]
+            #y1 = p[0] - ((p[0] - p[1])*np.exp(-KfKb *(t-p[4])) + p[1])
+            #y0 = (p[0] - p[1])*np.exp(-(p[2]+p[3])*(t-p[4])) + p[1]
+            #y1 = p[0] - ((p[0] - p[1])*np.exp(-(p[2]+p[3])*(t-p[4])) + p[1])
             #p = A0, B0, kf, kb, t0
             t0 = p[4]
             kt = p[2]+p[3]
-            y0 = p[0]/kt*(p[3]+p[2]*N.exp(-kt*(t-t0)))  + p[1]*p[3]/kt*(1-N.exp(-kt*(t-t0)))
-            y1 = p[0]/kt*p[2]*(1-N.exp(-kt*(t-t0)))     + p[1]/kt*(p[2]+p[3]*N.exp(-kt*(t-t0)))
+            y0 = p[0]/kt*(p[3]+p[2]*np.exp(-kt*(t-t0)))  + p[1]*p[3]/kt*(1-np.exp(-kt*(t-t0)))
+            y1 = p[0]/kt*p[2]*(1-np.exp(-kt*(t-t0)))     + p[1]/kt*(p[2]+p[3]*np.exp(-kt*(t-t0)))
             return([y0,y1])
             
         #def errfuncspec(self, p, t, y0, yerr0, y1, yerr1):
         #    y_cal = self.fitfuncspec(p, t)
         #    a = (y_cal[0]-y0)/(yerr0+0.001)
         #    b = (y_cal[1]-y1)/(yerr1+0.001)
-        #    #return(N.sqrt(a**2+b**2))
-        #    #return(N.sqrt(4*a**2+b**2))
+        #    #return(np.sqrt(a**2+b**2))
+        #    #return(np.sqrt(4*a**2+b**2))
         #    return(a+b)
 
         return self._fit(fitfunc, p0, columns)
@@ -326,49 +326,45 @@ class Rate:
 
     def fitOH(self, p0=[260, 10., 1, 0.01], OH_loss=False, OH_injection=False):
     #def fitOH(self, p0=[260, 1., 1., 0.01], full_output=False):
-        #fitfuncinc = lambda p, x: p[0]*(1-N.exp(-x/p[1]))+p[2]
+        #fitfuncinc = lambda p, x: p[0]*(1-np.exp(-x/p[1]))+p[2]
         if OH_loss:
             if OH_injection:
                 if len(p0)==4:
                     p0 = p0 + [0]
                 fitfunc = lambda p, x: (
-                        p[0]*N.exp(-x*p[1]), 
-                        p[2]*p[0]/(p[1]-p[3])*(N.exp(-x*(p[3]))-N.exp(-x*p[1])) +\
-                        (p[4])*N.exp(-x*(p[3]))
+                        p[0]*np.exp(-x*p[1]), 
+                        p[2]*p[0]/(p[1]-p[3])*(np.exp(-x*(p[3]))-np.exp(-x*p[1])) +\
+                        (p[4])*np.exp(-x*(p[3]))
                         )
             else:
                 fitfunc = lambda p, x: (
-                        p[0]*N.exp(-x*p[1]), 
-                        p[2]*p[0]/(p[1]-(p[3]))*(N.exp(-x*(p[3]))-N.exp(-x*p[1])) +\
-                        0.*N.exp(-x*(p[3]))
+                        p[0]*np.exp(-x*p[1]), 
+                        p[2]*p[0]/(p[1]-(p[3]))*(np.exp(-x*(p[3]))-np.exp(-x*p[1])) +\
+                        0.*np.exp(-x*(p[3]))
                         )
         else:
             fitfunc = lambda p, x: (
-                    p[0]*N.exp(-x*p[1]), 
-                    p[2]*p[0]/p[1]*(N.exp(-x*0)-N.exp(-x*p[1])) + p[3]*N.exp(-x*0)
+                    p[0]*np.exp(-x*p[1]), 
+                    p[2]*p[0]/p[1]*(np.exp(-x*0)-np.exp(-x*p[1])) + p[3]*np.exp(-x*0)
                     )
 
         return self._fit(fitfunc, p0, columns)
         self.fitfunc = fitfunc  #XXX hack
-        errfunc = lambda p, x, y, xerr: (N.hstack(fitfunc(p, x))-N.hstack((y[0,:], y[1,:])))/\
-                (N.hstack((xerr[0,:], xerr[1,:]))+0.02)
+        errfunc = lambda p, x, y, xerr: (np.hstack(fitfunc(p, x))-np.hstack((y[0,:], y[1,:])))/\
+                (np.hstack((xerr[0,:], xerr[1,:]))+0.02)
 
         args=(self.time, self.data_mean, self.data_std)
         return self.fitter(p0, errfunc, args)
 
 
-    def fit_change(self, p0=[260, 10., 0.0]):
-        #fitfuncinc = lambda p, x: p[0]*(1-N.exp(-x/p[1]))+p[2]
+    def fit_change(self, p0=[260, 10., 0.0], columns=[0,1]):
+        # p = [N1(0), r1, N2(0)]
         fitfunc = lambda p, x: (
-                p[0]*N.exp(-x*p[1]), 
-                p[0]*(N.exp(-x*0)-N.exp(-x*p[1])) + p[2]*1.
+                p[0]*np.exp(-x*p[1]), 
+                p[0]*(np.exp(-x*0)-np.exp(-x*p[1])) + p[2]*1.
                 )
-        self.fitfunc = fitfunc  #XXX hack
-        errfunc = lambda p, x, y, xerr: (N.hstack(fitfunc(p, x))-N.hstack((y[0,:], y[1,:])))/\
-                (N.hstack((xerr[0,:], xerr[1,:]))+0.02)
 
-        args=(self.time, self.data_mean, self.data_std)
-        return self.fitter(p0, errfunc, args)
+        return self._fit(fitfunc, p0, columns)
 
 
     def fit_H2O(self, p0=[260, 0.1, 0.01, 100, 0.1], t0_subtract=False):
@@ -377,14 +373,14 @@ class Rate:
         else:
             t0 = 0
         def fitfuncinc(p, x):
-            return N.hstack((
-                abs(p[0])*N.exp(-(x-t0)/abs(p[1])) + abs(p[3]), 
-                abs(p[1]*p[0]/p[4])*(1-N.exp(-(x-t0)/abs(p[1]))) + abs(p[2])
+            return np.hstack((
+                abs(p[0])*np.exp(-(x-t0)/abs(p[1])) + abs(p[3]), 
+                abs(p[1]*p[0]/p[4])*(1-np.exp(-(x-t0)/abs(p[1]))) + abs(p[2])
                 ))
         # assuming r1 = r2  i.e. sum is constant
         self.fitfuncinc = fitfuncinc  #XXX hack
-        errfunc = lambda p, x, y, xerr: (fitfuncinc(p, x)-N.hstack((y[0,:], y[1,:])))/\
-                (N.hstack((xerr[0,:], xerr[1,:]))+0.02)
+        errfunc = lambda p, x, y, xerr: (fitfuncinc(p, x)-np.hstack((y[0,:], y[1,:])))/\
+                (np.hstack((xerr[0,:], xerr[1,:]))+0.02)
 
         args=(self.time, self.data_mean, self.data_std)
 
@@ -400,15 +396,15 @@ class Rate:
             N10, r1, N20, r2 = p
             C2 = (N10 + N20)/(1+r1/r2)
             C1 = N10 - C2
-            return N.hstack((
-                C1*N.exp(-(x-t0)*(r1+r2)) + C2,
-                -C1*N.exp(-(x-t0)*(r1+r2)) + C2*r1/r2
+            return np.hstack((
+                C1*np.exp(-(x-t0)*(r1+r2)) + C2,
+                -C1*np.exp(-(x-t0)*(r1+r2)) + C2*r1/r2
                 ))
         # assuming r1 = r2  i.e. sum is constant
         self.fitfuncinc = fitfuncinc  #XXX hack
         def errfunc(p, x, y, xerr):
-            return (fitfuncinc(p, x)-N.hstack((y[0,:], y[1,:])))/\
-                (N.hstack((xerr[0,:], xerr[1,:]))+0.02)
+            return (fitfuncinc(p, x)-np.hstack((y[0,:], y[1,:])))/\
+                (np.hstack((xerr[0,:], xerr[1,:]))+0.02)
 
         args=(self.time, self.data_mean, self.data_std)
 
@@ -417,20 +413,20 @@ class Rate:
 
     def fit_H2O_disc(self, p0=[260, 0.1, 0.01, 100, 0.1, 1.], t0_subtract=False):
     #def fitOH(self, p0=[260, 1., 1., 0.01], full_output=False):
-        #fitfuncinc = lambda p, x: p[0]*(1-N.exp(-x/p[1]))+p[2]
+        #fitfuncinc = lambda p, x: p[0]*(1-np.exp(-x/p[1]))+p[2]
         if t0_subtract:
             t0 = self.time[0]
         else:
             t0 = 0
         def fitfuncinc(p, x):
-            return N.hstack((
-                abs(p[0])*N.exp(-(x-t0)/abs(p[1])) + abs(p[3]), 
-                p[5]*( abs(p[1]*p[0]/p[4])*(1-N.exp(-(x-t0)/abs(p[1]))) + p[2] )
+            return np.hstack((
+                abs(p[0])*np.exp(-(x-t0)/abs(p[1])) + abs(p[3]), 
+                p[5]*( abs(p[1]*p[0]/p[4])*(1-np.exp(-(x-t0)/abs(p[1]))) + p[2] )
                 ))
         # assuming r1 = r2  i.e. sum is constant
         self.fitfuncinc = fitfuncinc  #XXX hack
-        errfunc = lambda p, x, y, xerr: (fitfuncinc(p, x)-N.hstack((y[0,:], y[1,:])))/\
-                (N.hstack((xerr[0,:], xerr[1,:]))+0.02)
+        errfunc = lambda p, x, y, xerr: (fitfuncinc(p, x)-np.hstack((y[0,:], y[1,:])))/\
+                (np.hstack((xerr[0,:], xerr[1,:]))+0.02)
 
         args=(self.time, self.data_mean, self.data_std)
 
@@ -446,13 +442,13 @@ class Rate:
                     (p[1]*y[0] - (p[2]+p[3])*y[1])/disc\
                     ]
             y0 = [p[0], p[5]]
-            t = N.r_[0, x]
+            t = np.r_[0, x]
             y = odeint(eqn, y0, t)
             return (y[1:,0], y[1:,1])
         self.fitfunc = fitfunc  #XXX hack
         def errfunc( p, x, y, xerr):
-            return (N.hstack(fitfunc(p, x))-N.hstack((y[0,:], y[1,:])))/\
-                (N.hstack((xerr[0,:], xerr[1,:]))+0.02)
+            return (np.hstack(fitfunc(p, x))-np.hstack((y[0,:], y[1,:])))/\
+                (np.hstack((xerr[0,:], xerr[1,:]))+0.02)
         args=(self.time, self.data_mean, self.data_std)
 
         return self.fitter(p0, errfunc, args)
@@ -467,13 +463,13 @@ class Rate:
                     p[2]*y[0],\
                     ]
             y0 = [p[0], p[3], p[4]]
-            t = N.r_[0, x]
+            t = np.r_[0, x]
             y = odeint(eqn, y0, t)
             return (y[1:,0], y[1:,1], y[1:,2])
         self.fitfunc = fitfunc  #XXX hack
         def errfunc( p, x, y, xerr):
-            return (N.hstack(fitfunc(p, x))-N.hstack((y[0,:], y[1,:], y[2,:])))/\
-                    (N.hstack((xerr[0,:], xerr[1,:], xerr[2,:]))+0.02)
+            return (np.hstack(fitfunc(p, x))-np.hstack((y[0,:], y[1,:], y[2,:])))/\
+                    (np.hstack((xerr[0,:], xerr[1,:], xerr[2,:]))+0.02)
         args=(self.time, self.data_mean, self.data_std)
 
         return self.fitter(p0, errfunc, args)
@@ -489,19 +485,19 @@ class Rate:
                     p[2]*y[0],\
                     ]
             y0 = [p[0], p[4], p[3]]
-            t = N.r_[0, x]
+            t = np.r_[0, x]
             y = odeint(eqn, y0, t)
             return (y[1:,0], y[1:,1], y[1:,2])
         self.fitfunc = fitfunc  #XXX hack
         rate2.fitfunc = fitfunc
         def errfunc( p, x, y, xerr, x2, y2, xerr2):
             p1 = p[:5]
-            err1 = (N.hstack(fitfunc(p1, x))-N.hstack((y[0,:], y[1,:], y[2,:])))/\
-                    (N.hstack((xerr[0,:], xerr[1,:], xerr[2,:]))+0.02)
+            err1 = (np.hstack(fitfunc(p1, x))-np.hstack((y[0,:], y[1,:], y[2,:])))/\
+                    (np.hstack((xerr[0,:], xerr[1,:], xerr[2,:]))+0.02)
             p1 = list(p[5:])+[p[4]]
-            err2 = (N.hstack(fitfunc(p1, x2))-N.hstack((y2[0,:], y2[1,:], y2[2,:])))/\
-                    (N.hstack((xerr2[0,:], xerr2[1,:], xerr2[2,:]))+0.02)
-            return N.hstack((err1, err2))
+            err2 = (np.hstack(fitfunc(p1, x2))-np.hstack((y2[0,:], y2[1,:], y2[2,:])))/\
+                    (np.hstack((xerr2[0,:], xerr2[1,:], xerr2[2,:]))+0.02)
+            return np.hstack((err1, err2))
         args=(self.time, self.data_mean, self.data_std, rate2.time, rate2.data_mean, rate2.data_std)
 
         return self.fitter(p0, errfunc, args)
@@ -517,30 +513,30 @@ class Rate:
             ):
         if loss == None:
             fitfunc = lambda p, x: (
-                    p[0]*N.exp(-x*p[1]), 
-                    p[0]*(N.exp(-x*0)-N.exp(-x*p[1])) + p[2]*1.
+                    p[0]*np.exp(-x*p[1]), 
+                    p[0]*(np.exp(-x*0)-np.exp(-x*p[1])) + p[2]*1.
                     )
         else:
             fitfunc = lambda p, x: (
-                    N.exp(-x*p[1])*p[0], 
-                    N.exp(-x*loss)*( p[2] + p[0]*p[1]/(loss-p[1])*(N.exp(-x*(p[1]-p[2]))-1))
+                    np.exp(-x*p[1])*p[0], 
+                    np.exp(-x*loss)*( p[2] + p[0]*p[1]/(loss-p[1])*(np.exp(-x*(p[1]-p[2]))-1))
                     )
         """
         fitfunc = lambda p, x: (
-                p[0]*N.exp(-x*p[1]), 
-                p[0]*(N.exp(-x*0)-N.exp(-x*p[1])) + p[2]*1.
+                p[0]*np.exp(-x*p[1]), 
+                p[0]*(np.exp(-x*0)-np.exp(-x*p[1])) + p[2]*1.
                 )
         """
         self.fitfunc = fitfunc  #XXX hack
         rate2.fitfunc = fitfunc
         def errfunc( p, x, y, xerr, x2, y2, xerr2):
             p1 = p[:3]
-            err1 = (N.hstack(fitfunc(p1, x))-N.hstack((y[colmap[0],:], y[colmap[1],:])))/\
-                (N.hstack((xerr[colmap[0],:], xerr[colmap[1],:]))+0.1)
+            err1 = (np.hstack(fitfunc(p1, x))-np.hstack((y[colmap[0],:], y[colmap[1],:])))/\
+                (np.hstack((xerr[colmap[0],:], xerr[colmap[1],:]))+0.1)
             p1 = list(p[3:])+[p[2]]
-            err2 = (N.hstack(fitfunc(p1, x2))-N.hstack((y2[colmap[0],:], y2[colmap[1],:])))/\
-                (N.hstack((xerr2[colmap[0],:], xerr2[colmap[1],:]))+0.1)
-            return N.hstack((err1, err2))
+            err2 = (np.hstack(fitfunc(p1, x2))-np.hstack((y2[colmap[0],:], y2[colmap[1],:])))/\
+                (np.hstack((xerr2[colmap[0],:], xerr2[colmap[1],:]))+0.1)
+            return np.hstack((err1, err2))
         args=(self.time, self.data_mean, self.data_std, rate2.time, rate2.data_mean, rate2.data_std)
 
         return self.fitter(p0, errfunc, args, bounds=bounds)
@@ -551,7 +547,7 @@ class Rate:
         fitfunc = lambda p, x: p[0] - x*p[1]
         self.linfitfunc = fitfunc  #XXX hack
         errfunc = lambda p, x, y, xerr: (fitfunc(p, x)-y)/(xerr+0.2)
-        args = (self.time, N.log(self.data_mean[column,:]), self.data_std[column,:]/self.data_mean[column,:])
+        args = (self.time, np.log(self.data_mean[column,:]), self.data_std[column,:]/self.data_mean[column,:])
         return self.fitter(p0, errfunc, args)
 
 
@@ -564,7 +560,7 @@ class MultiRate(Rate):
     def fit(self, p0=[.1], nions=60., column=0):
 
         nrates = len(self.rates)
-        fitfunc = lambda p, x: p[0]*N.exp(-x*p[1])
+        fitfunc = lambda p, x: p[0]*np.exp(-x*p[1])
         self.fitfunc = fitfunc  #XXX hack
         errfunc = lambda p, x, y, xerr: (fitfunc(p, x)-y)/(xerr+0.02)
 
@@ -574,7 +570,7 @@ class MultiRate(Rate):
             for i in range(nrates):
                 pi = list([p[i]])+list(p[nrates:])
                 err.append(errfunc(pi, rates[i].time, rates[i].data_mean[column,:], rates[i].data_std[column,:]))
-            return N.hstack(err)
+            return np.hstack(err)
 
 
         p0 = [nions]*nrates + p0
@@ -583,31 +579,31 @@ class MultiRate(Rate):
 
     def fitOH(self, p0=[10., 1, 0.01], nions=100., OH_loss=False, OH_injection=False):
     #def fitOH(self, p0=[260, 1., 1., 0.01], full_output=False):
-        #fitfuncinc = lambda p, x: p[0]*(1-N.exp(-x/p[1]))+p[2]
+        #fitfuncinc = lambda p, x: p[0]*(1-np.exp(-x/p[1]))+p[2]
         nrates = len(self.rates)
         if OH_loss:
             if OH_injection:
                 if len(p0)==3:
                     p0 = p0 + [0]
                 fitfunc = lambda p, x: (
-                        p[0]*N.exp(-x*p[1]), 
-                        p[2]*p[0]/(p[1]-p[3])*(N.exp(-x*(p[3]))-N.exp(-x*p[1])) +\
-                        (p[4])*N.exp(-x*(p[3]))
+                        p[0]*np.exp(-x*p[1]), 
+                        p[2]*p[0]/(p[1]-p[3])*(np.exp(-x*(p[3]))-np.exp(-x*p[1])) +\
+                        (p[4])*np.exp(-x*(p[3]))
                         )
             else:
                 fitfunc = lambda p, x: (
-                        p[0]*N.exp(-x*p[1]), 
-                        p[2]*p[0]/(p[1]-(p[3]))*(N.exp(-x*(p[3]))-N.exp(-x*p[1])) +\
-                        0.*N.exp(-x*(p[3]))
+                        p[0]*np.exp(-x*p[1]), 
+                        p[2]*p[0]/(p[1]-(p[3]))*(np.exp(-x*(p[3]))-np.exp(-x*p[1])) +\
+                        0.*np.exp(-x*(p[3]))
                         )
         else:
             fitfunc = lambda p, x: (
-                    p[0]*N.exp(-x*p[1]), 
-                    p[2]*p[0]/p[1]*(N.exp(-x*0)-N.exp(-x*p[1])) + p[3]*N.exp(-x*0)
+                    p[0]*np.exp(-x*p[1]), 
+                    p[2]*p[0]/p[1]*(np.exp(-x*0)-np.exp(-x*p[1])) + p[3]*np.exp(-x*0)
                     )
         self.fitfunc = fitfunc  #XXX hack
-        errfunc = lambda p, x, y, xerr: (N.hstack(fitfunc(p, x))-N.hstack((y[0,:], y[1,:])))/\
-                (N.hstack((xerr[0,:], xerr[1,:]))+0.02)
+        errfunc = lambda p, x, y, xerr: (np.hstack(fitfunc(p, x))-np.hstack((y[0,:], y[1,:])))/\
+                (np.hstack((xerr[0,:], xerr[1,:]))+0.02)
 
 
         def errfunc_multi(p, rates):
@@ -616,7 +612,7 @@ class MultiRate(Rate):
             for i in range(nrates):
                 pi = list([p[i]])+list(p[nrates:])
                 err.append(errfunc(pi, rates[i].time, rates[i].data_mean, rates[i].data_std))
-            return N.hstack(err)
+            return np.hstack(err)
 
 
         p0 = [nrates]*len(self.rates) + p0
@@ -634,13 +630,13 @@ class MultiRate(Rate):
                     (p[1]*y[0] - (p[2]+p[3])*y[1])/disc\
                     ]
             y0 = [p[0], p[5]]
-            t = N.r_[0, x]
+            t = np.r_[0, x]
             y = odeint(eqn, y0, t)
             return (y[1:,0], y[1:,1])
         self.fitfunc = fitfunc  #XXX hack
         def errfunc( p, x, y, xerr):
-            return (N.hstack(fitfunc(p, x))-N.hstack((y[0,:], y[1,:])))/\
-                (N.hstack((xerr[0,:], xerr[1,:]))+0.02)
+            return (np.hstack(fitfunc(p, x))-np.hstack((y[0,:], y[1,:])))/\
+                (np.hstack((xerr[0,:], xerr[1,:]))+0.02)
 
         def errfunc_multi(p, rates):
             # p[0] is normalization factor (# of ions)
@@ -648,8 +644,8 @@ class MultiRate(Rate):
             for i in range(nrates):
                 pi = list([p[i]])+list(p[nrates:])
                 err.append(errfunc(pi, rates[i].time, rates[i].data_mean, rates[i].data_std))
-            #print "err = ", N.sum(N.hstack(err)**2)
-            return N.hstack(err)
+            #print "err = ", np.sum(np.hstack(err)**2)
+            return np.hstack(err)
 
 
         p0 = [nions]*nrates + list(p0)
@@ -659,8 +655,8 @@ class MultiRate(Rate):
 
 #XXX attention, new fitting methods return rates instead of taus!!!
 class Labbook:
-    def __init__(self, fname, datename, direc="../Rate", fmt=[("id", N.str_, 2), ("T", N.float_), ("shut", N.str_, 1), ("Ubar", N.int_), ("gid", N.int_)], full_data=True):
-        self.labbook = N.loadtxt(fname, fmt, comments="#")
+    def __init__(self, fname, datename, direc="../Rate", fmt=[("id", np.str_, 2), ("T", np.float_), ("shut", np.str_, 1), ("Ubar", np.int_), ("gid", np.int_)], full_data=True):
+        self.labbook = np.loadtxt(fname, fmt, comments="#")
         self.datename = datename
         self.full_data = full_data
         self.opened = (self.labbook["shut"] == "O")
@@ -699,10 +695,10 @@ class Labbook:
                 except (RuntimeError):
                     pass
 
-            line = N.r_[tau, tauerr]
+            line = np.r_[tau, tauerr]
             if data is not None:
-                data = N.vstack((data, line))
-                indices = N.vstack((indices, index))
+                data = np.vstack((data, line))
+                indices = np.vstack((indices, index))
             else:
                 data = line
                 indices = index
@@ -718,7 +714,7 @@ class Labbook:
         #rates[rates<0] = 0.0
 
         ii = self.labbook[indices]["T"][:,0]
-        self.data = N.vstack((ii, rates, rateerrs)).T
+        self.data = np.vstack((ii, rates, rateerrs)).T
         self.labbook = self.labbook[indices]
         self.opened = self.opened[indices][:,0]
         self.laser = self.laser[indices][:,0]
@@ -732,15 +728,15 @@ class Labbook:
             gid = self.labbook["gid"][i]
             indices = (self.labbook["gid"] == gid)[:,0] & ~opened
             if gid == 0 or len(self.data[indices,1]) == 0: continue
-            bgs = N.mean(self.data[indices,1])
-            bgerrs = N.sqrt(N.sum(self.data[indices,2]**2)/len(self.data[indices,2]))
-            #bgerrs = N.std(data[indices,2])/N.sqrt(len(data[indices,2]))
+            bgs = np.mean(self.data[indices,1])
+            bgerrs = np.sqrt(np.sum(self.data[indices,2]**2)/len(self.data[indices,2]))
+            #bgerrs = np.std(data[indices,2])/np.sqrt(len(data[indices,2]))
             self.data[i, 1] -= bgs
-            self.data[i, 2] = N.sqrt(self.data[i,2]**2 + bgerrs**2)
+            self.data[i, 2] = np.sqrt(self.data[i,2]**2 + bgerrs**2)
         return self.data, self.labbook
 
     def merge_points(self, mask=None):
-        if mask==None: mask = N.ones(len(self.opened), dtype=bool)
+        if mask==None: mask = np.ones(len(self.opened), dtype=bool)
         # beware, std deviation is returned instead of mean error
         gids = set(self.labbook["gid"][:,0])
         #opened = (self.labbook["shut"] == "O")[:,0]
@@ -753,12 +749,12 @@ class Labbook:
             for indices in [Oindices, Cindices, Lindices]:
                 litem = self.labbook[indices]
                 if len(litem) > 0:
-                    item = N.mean(self.data[indices,:], axis=0)
-                    item[2] = N.std(self.data[indices,1])
-                    data2 = N.vstack((data2, item))
-                    labbook2 = N.vstack((labbook2, litem[0]))
+                    item = np.mean(self.data[indices,:], axis=0)
+                    item[2] = np.std(self.data[indices,1])
+                    data2 = np.vstack((data2, item))
+                    labbook2 = np.vstack((labbook2, litem[0]))
 
-        #data2 = data2[~N.isnan(data2[:,0]),:]
+        #data2 = data2[~np.isnan(data2[:,0]),:]
         labbook2 = labbook2[1:]
         data2 = data2[1:]
         self.labbook_merged = labbook2
@@ -776,7 +772,7 @@ class Labbook:
             print((self.labbook["id"][i], self.labbook["shut"][i], self.data[i]))
 
     def mask(self, skippts = []):
-        mask = N.ones(len(self.opened), dtype=bool)
+        mask = np.ones(len(self.opened), dtype=bool)
         for i in skippts:
             mask[(self.labbook["id"] == "%.2d" % (i,))[:,0]] = False
         return mask
@@ -794,10 +790,10 @@ class Labbook:
 
 
 def decimate(data, bins):
-    averages = N.zeros((len(bins)-1, 5))
+    averages = np.zeros((len(bins)-1, 5))
     for i in range(len(bins)-1):
         indices = (data[:,0] >= bins[i] ) & (data[:,0] < bins[i+1])
-        if N.any(indices): averages[i,4] = 1
+        if np.any(indices): averages[i,4] = 1
         else: continue
         subset = data[indices]
         from avg import w_avg_std
@@ -815,7 +811,7 @@ def stitch(avg1, avg2):
     def distance(p, data_avg, averages):
         overlap = (avg1[:,4]>0) & (avg2[:,4]>0)
         dist = avg1[overlap,1]*p[0] - avg2[overlap,1]
-        var = N.sqrt((avg1[overlap,3]*p[0])**2 + avg2[overlap,3]**2)
+        var = np.sqrt((avg1[overlap,3]*p[0])**2 + avg2[overlap,3]**2)
         return dist/var
 
     p0 = [1.0]
@@ -826,13 +822,13 @@ def stitch(avg1, avg2):
     if ier not in [1, 2, 3, 4] or cov_p is None:
         msg = "Optimal parameters not found: " + mesg
         raise RuntimeError(msg)
-    if any(N.diag(cov_p) < 0):
+    if any(np.diag(cov_p) < 0):
         raise RuntimeError("Optimal parameters not found: negative variance")
     
     p = [p]
-    chisq = N.dot(info["fvec"], info["fvec"])
+    chisq = np.dot(info["fvec"], info["fvec"])
     dof = len(info["fvec"]) - len(p)
-    sigma = N.array([N.sqrt(cov_p[i,i])*N.sqrt(chisq/dof) for i in range(len(p))])
+    sigma = np.array([np.sqrt(cov_p[i,i])*np.sqrt(chisq/dof) for i in range(len(p))])
 
     Q = chisq/dof
     from scipy.stats import chi2
@@ -865,13 +861,13 @@ def stitch_old(fname, averages, datasets, labbooks, bins, full_output=False):
     if ier not in [1, 2, 3, 4] or cov_p is None:
         msg = "Optimal parameters not found: " + mesg
         raise RuntimeError(msg)
-    if any(N.diag(cov_p) < 0):
+    if any(np.diag(cov_p) < 0):
         raise RuntimeError("Optimal parameters not found: negative variance")
     
     p = [p]
-    chisq = N.dot(info["fvec"], info["fvec"])
+    chisq = np.dot(info["fvec"], info["fvec"])
     dof = len(info["fvec"]) - len(p)
-    sigma = N.array([N.sqrt(cov_p[i,i])*N.sqrt(chisq/dof) for i in range(len(p))])
+    sigma = np.array([np.sqrt(cov_p[i,i])*np.sqrt(chisq/dof) for i in range(len(p))])
     if full_output:
         Q = chisq/dof
         from scipy.stats import chi2
