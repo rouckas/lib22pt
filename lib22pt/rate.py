@@ -256,7 +256,6 @@ class Rate:
             sigma_min = 0.02
             retval = (fitfunc(p, x)-y[columns,:])/\
                 (xerr[columns,:] + sigma_min)
-            print(p, np.sum(retval**2))
             return retval.ravel()
         args=(self.time[mask], self.data_mean[:,mask], self.data_std[:,mask])
         return self.fitter(p0, errfunc, args)
