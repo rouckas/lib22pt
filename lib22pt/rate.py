@@ -250,7 +250,7 @@ class Rate:
         pval = chi
         return p, sigma, pval
 
-    def _fit(self, fitfunc, p0, columns, mask=slice(None)):
+    def _fit(self, fitfunc, p0, columns, mask=slice(None), bounds=None):
         self.fitfunc = fitfunc # store the fitfunc for later
         def errfunc( p, x, y, xerr):
             sigma_min = 0.02
@@ -258,7 +258,7 @@ class Rate:
                 (xerr[columns,:] + sigma_min)
             return retval.ravel()
         args=(self.time[mask], self.data_mean[:,mask], self.data_std[:,mask])
-        return self.fitter(p0, errfunc, args)
+        return self.fitter(p0, errfunc, args, bounds)
 
 
     def fit_decay(self, p0=[60.0, .1], columns=0, mask=slice(None)):
@@ -365,14 +365,14 @@ class Rate:
 
         return self._fit(fitfunc, p0, columns, mask)
 
-    def fit_change_disc(self, p0=[260, 10., 0.0, 1.0], columns=[0,1], mask=slice(None)):
+    def fit_change_disc(self, p0=[260, 10., 0.0, 1.0], columns=[0,1], mask=slice(None), bounds=None):
         # p = [N1(0), r1, N2(0), disc12]
         fitfunc = lambda p, x: (
                 p[0]*np.exp(-x*p[1]),
                 (p[0]*(np.exp(-x*0)-np.exp(-x*p[1])) + p[2]*1.)*p[3]
                 )
 
-        return self._fit(fitfunc, p0, columns, mask)
+        return self._fit(fitfunc, p0, columns, mask, bounds)
 
 
     def fit_H2O(self, p0=[260, 0.1, 0.01, 100, 0.1], t0_subtract=False):
