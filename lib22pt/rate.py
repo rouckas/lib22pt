@@ -484,7 +484,7 @@ class Rate:
 
 
 
-    def fit_CO2_coupled(self, rate2, p0=[150, 0.1, 0.05, 0.1, 0.1, 150, 0.1, 0.05, 0.1]):
+    def fit_CO2_coupled(self, rate2, p0=[150, 0.1, 0.05, 0.1, 0.1, 150, 0.1, 0.05, 0.1], columns=[0, 1, 2]):
         from scipy.integrate import odeint
         def fitfunc(p, x):
             eqn = lambda y, x: [\
@@ -500,12 +500,12 @@ class Rate:
         rate2.fitfunc = fitfunc
         def errfunc( p, x, y, xerr, x2, y2, xerr2):
             p1 = p[:5]
-            err1 = (np.hstack(fitfunc(p1, x))-np.hstack((y[0,:], y[1,:], y[2,:])))/\
-                    (np.hstack((xerr[0,:], xerr[1,:], xerr[2,:]))+0.02)
+            err1 = (np.vstack(fitfunc(p1, x))-y[columns,:])/\
+                    (xerr[columns,:]+0.02)
             p1 = list(p[5:])+[p[4]]
-            err2 = (np.hstack(fitfunc(p1, x2))-np.hstack((y2[0,:], y2[1,:], y2[2,:])))/\
-                    (np.hstack((xerr2[0,:], xerr2[1,:], xerr2[2,:]))+0.02)
-            return np.hstack((err1, err2))
+            err2 = (np.vstack(fitfunc(p1, x2))-y2[columns,:])/\
+                    (xerr2[columns,:]+0.02)
+            return np.hstack((err1.ravel(), err2.ravel()))
         args=(self.time, self.data_mean, self.data_std, rate2.time, rate2.data_mean, rate2.data_std)
 
         return self.fitter(p0, errfunc, args)
