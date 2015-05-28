@@ -798,13 +798,15 @@ class Labbook:
 
 
 def decimate(data, bins):
+    """ the data columns are [data_x, data_y, y_err] """
     averages = np.zeros((len(bins)-1, 5))
+    averages[:,:] = np.nan
     for i in range(len(bins)-1):
         indices = (data[:,0] >= bins[i] ) & (data[:,0] < bins[i+1])
         if np.any(indices): averages[i,4] = 1
         else: continue
         subset = data[indices]
-        from avg import w_avg_std
+        from .avg import w_avg_std
 
         averages[i,0], averages[i,2], dum = w_avg_std(subset[:,0], 1/subset[:,2]**2)
         averages[i,1], averages[i,3], dum = w_avg_std(subset[:,1], 1/subset[:,2]**2)
