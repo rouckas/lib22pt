@@ -356,14 +356,14 @@ class Rate:
         return self.fitter(p0, errfunc, args)
 
 
-    def fit_change(self, p0=[260, 10., 0.0], columns=[0,1], mask=slice(None)):
+    def fit_change(self, p0=[260, 10., 0.0], columns=[0,1], mask=slice(None), bounds=None, loss=0.):
         # p = [N1(0), r1, N2(0)]
         fitfunc = lambda p, x: (
-                p[0]*np.exp(-x*p[1]),
-                p[0]*(np.exp(-x*0)-np.exp(-x*p[1])) + p[2]*1.
+                np.exp(-x*p[1])*p[0],
+                np.exp(-x*loss)*( p[2] + p[0]*p[1]/(loss-p[1])*(np.exp(-x*(p[1]-loss))-1))
                 )
 
-        return self._fit(fitfunc, p0, columns, mask)
+        return self._fit(fitfunc, p0, columns, mask, bounds)
 
     def fit_change_disc(self, p0=[260, 10., 0.0, 1.0], columns=[0,1], mask=slice(None), bounds=None):
         # p = [N1(0), r1, N2(0), disc12]
