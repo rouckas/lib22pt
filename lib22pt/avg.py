@@ -1,7 +1,7 @@
 #!/usr/bin/python
 import numpy as N
 
-def wstd_avg_std(x, std):
+def wstd_avg_std(x, std, axis=0):
     """
     Returns weighted mean and standard deviation of samples with known
     standard deviations. Optimal weighting is used.
@@ -9,13 +9,17 @@ def wstd_avg_std(x, std):
     w - standard deviations of samples (ndarray)
     """
 
+    if N.shape(x)[axis] < 2:
+        return N.rollaxis(x, axis)[0], N.rollaxis(std, axis)[0]
+
+
     if len(x) < 2:
         return x[0], std[0]
 
     w = 1/std**2
-    sum_w = N.sum(w, axis=0)
+    sum_w = N.sum(w, axis=axis)
 
-    xm = N.sum(w*x, axis=0)/sum_w
+    xm = N.sum(w*x, axis=axis)/sum_w
     var = 1/sum_w
 
     return xm, N.sqrt(var)
