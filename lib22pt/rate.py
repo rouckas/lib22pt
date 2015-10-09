@@ -6,19 +6,22 @@ import numpy as np
 # 2015-01-28 Simplified fitting again. Needs more work
 # 2015-03-02 Added functions for number density calculation
 
-def concentrationD2(temp, Paml22PT, PamlSIS=0., f_D2_22PT=56):
+def concentration(temp, Paml22PT, f_22PT, PamlSIS=0., f_SIS=0., amltemp=300):
+    """Calculate number density in cm^-3 from pressure in Pa"""
     k_B = 1.3806488e-23
-    return (Paml22PT*f_D2_22PT + PamlSIS*1.4)/k_B/np.sqrt(300*temp)/10000
+    # check the role of amltemp
+    return (Paml22PT*f_22PT + PamlSIS*f_SIS)/k_B/np.sqrt(amltemp*temp)/10000
+
+def concentrationD2(temp, Paml22PT, PamlSIS=0., f_D2_22PT=56):
+    return concentration(temp, Paml22PT, f_D2_22PT, PamlSIS, 1.4)
 
 def concentrationH2(temp, Paml22PT, PamlSIS, f_H2_22PT=38.2):
-    k_B = 1.3806488e-23
-    return (Paml22PT*f_H2_22PT + PamlSIS*1.4)/k_B/np.sqrt(300*temp)/10000
+    return concentration(temp, Paml22PT, f_H2_22PT, PamlSIS, 1.4)
 
 def concentrationHe(temp, Paml22PT, PamlSIS, f_He_22PT=140.):
-    k_B = 1.3806488e-23
     #f_22PT = 140.      # calibration from 2013-02-22
     f_SIS = 5.          # rough estimate, mostly negligible
-    return (Paml22PT*f_He_22PT + PamlSIS*f_SIS)/k_B/np.sqrt(300*temp)/10000
+    return concentration(temp, Paml22PT, f_H2_22PT, PamlSIS, f_SIS)
 
 class Rate:
     def __init__(self, fname, full_data=False, skip_iter=[]):
