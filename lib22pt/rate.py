@@ -63,39 +63,38 @@ class Rate:
                     ioniter.append(int(re.search("Iterations=(\d+)", line).group(1)))
 
             if toks[0] == "Time":
-                state = 1
-                time = np.zeros(npoints)
-                data = np.zeros((nions, npoints, self.niter))
-                if len(ioniter) != nions:
+                if len(toks)-2 != nions:
+                    print("Corrupt file", fname, "Wrong number of ions in the header. Trying to recover")
+                    # Assume that the Time header is correct:
+                    nions = len(toks)-2
+                    ioniter = ioniter[:nions]
+
+                if len(ioniter) < nions:
                     print("Corrupt file", fname, "Iterations for all species not recorded")
                     while len(ioniter) < nions:
                         ioniter.append(ioniter[-1])
+
+                state = 1
+                time = []
+                data = np.zeros((nions, npoints, self.niter))
                 continue
 
             if state == 1:
                 try:
                     newtime = float(toks[0])
                 except ValueError:
+                    if pointno != npoints:
+                        print(("Corrupt file " + fname + " trying to guess number of points"))
+                        npoints = pointno
+                        data.resize((nions, npoints, self.niter)) 
+                    time = np.array(time)
                     state = 2
                 else:
-                    if pointno==len(time):
-                        print(("Corrupt file " + fname + " trying to guess number of points"))
-                        npoints += 1
-                        time.resize(npoints)
-                        data.resize((nions, npoints, self.niter)) 
-                    time[pointno] = newtime
+                    time.append(newtime)
                     pointno += 1
 
             if state == 2:
                 if toks[0] == "Iteration":
-                    if pointno != npoints:
-                        print(("Corrupt file " + fname + " trying to guess number of points"))
-                        #msg = "Corrupt file: " + fname
-                        #raise IOError(msg)
-                        npoints = pointno
-                        time.resize(npoints)
-                        data.resize((nions, npoints, self.niter)) 
-
                     iterno = int(toks[1])-1
                     if iterno+1 > self.niter:
                         print(("Corrupt file " + fname + " trying to guess number of iterations"))
