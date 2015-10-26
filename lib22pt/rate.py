@@ -36,6 +36,7 @@ class Rate:
         iterno = 0
 
         ioniter = []
+        ionname = []
         frequency = 0
         integration = 0
 
@@ -61,6 +62,8 @@ class Rate:
                     nions += 1
                 if re.search("^Iterations=", line) :
                     ioniter.append(int(re.search("Iterations=(\d+)", line).group(1)))
+                if re.search("^Name=", line) :
+                    ionname.append(re.search("Name=(.+)$", line).group(1))
 
             if toks[0] == "Time":
                 if len(toks)-2 != nions:
@@ -136,6 +139,9 @@ class Rate:
         # XXX frequency is sometimes wrong in the files
         self.total_iterations = ioniter[:,None]*integration*frequency*self.niter
 
+        self.nions = nions
+        self.ionname = ionname
+
         self.time = time
         self.data = data
 
@@ -144,6 +150,9 @@ class Rate:
         if not full_data:
             self.data = None
         self.mask = None
+
+        self.fitfunc = None
+        self.fitparam = None
 
     def average(self):
         data_mean = np.mean(self.data, axis=2)
@@ -216,6 +225,25 @@ class Rate:
         #print self.data_mean, self.data_std
 
         #self.data[self.data<120] = 130
+
+    def plot(self, ax=None, show=False):
+        if ax is None:
+            import matplotlib.pyplot as plt
+            ax = plt.gca()
+
+        for i in range(self.nions):
+            ax.errorbar(self.time, self.data_mean[i], yerr=self.data_std[i], label=self.ionname[i],
+                    fmt = "o")
+
+        if self.fitfunc != None:
+            x = np.linspace(np.min(self.time), np.max(self.time))
+            ax.plot(x, self.fitfunc(self.fitparam, x))
+
+        if show == True:
+            ax.set_yscale("log")
+            ax.legend()
+            plt.show()
+
     def fitter(self, p0, errfunc, args, bounds=None):
         if bounds==None:
             _errfunc = errfunc
