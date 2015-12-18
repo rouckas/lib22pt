@@ -73,9 +73,14 @@ class Rate:
                     ioniter = ioniter[:nions]
 
                 if len(ioniter) < nions:
-                    print("Corrupt file", fname, "Iterations for all species not recorded")
+                    print("Corrupt file", fname, "Iterations for all species not recorded, guessing...")
                     while len(ioniter) < nions:
                         ioniter.append(ioniter[-1])
+
+                if len(ionname) < nions:
+                    print("Corrupt file", fname, "Names for all species not recorded, making something up...")
+                    while len(ionname) < nions:
+                        ionname.append("Ion%d" % (len(ionname)+1,))
 
                 state = 1
                 time = []
