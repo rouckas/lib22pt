@@ -21,7 +21,7 @@ def concentrationH2(temp, Paml22PT, PamlSIS, f_H2_22PT=38.2):
 def concentrationHe(temp, Paml22PT, PamlSIS, f_He_22PT=140.):
     #f_22PT = 140.      # calibration from 2013-02-22
     f_SIS = 5.          # rough estimate, mostly negligible
-    return concentration(temp, Paml22PT, f_H2_22PT, PamlSIS, f_SIS)
+    return concentration(temp, Paml22PT, f_He_22PT, PamlSIS, f_SIS)
 
 class Rate:
     def __init__(self, fname, full_data=False, skip_iter=[]):
