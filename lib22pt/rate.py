@@ -158,6 +158,7 @@ class Rate:
 
         self.fitfunc = None
         self.fitparam = None
+        self.fitcolumns = None
 
     def average(self):
         data_mean = np.mean(self.data, axis=2)
@@ -231,18 +232,21 @@ class Rate:
 
         #self.data[self.data<120] = 130
 
-    def plot(self, ax=None, show=False):
+    def plot(self, ax=None, show=False, plot_fitfunc=True):
         if ax is None:
             import matplotlib.pyplot as plt
             ax = plt.gca()
 
+        lines = []
         for i in range(self.nions):
-            ax.errorbar(self.time, self.data_mean[i], yerr=self.data_std[i], label=self.ionname[i],
+            l = ax.errorbar(self.time, self.data_mean[i], yerr=self.data_std[i], label=self.ionname[i],
                     fmt = "o")
+            lines.append(l)
 
         if self.fitfunc != None:
             x = np.linspace(np.min(self.time), np.max(self.time))
-            ax.plot(x, self.fitfunc(self.fitparam, x))
+            ax.plot(x, self.fitfunc(self.fitparam, x), c=lines[self.fitcolumns].get_children()[0].get_color(),\
+                    label="p="+str(self.fitparam))
 
         if show == True:
             ax.set_yscale("log")
