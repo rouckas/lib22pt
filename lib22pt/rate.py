@@ -607,24 +607,80 @@ class MultiRate(Rate):
         for fname in fnames:
             self.rates.append(Rate(directory+fname, full_data=True))
 
-    def fit(self, p0=[.1], nions=60., column=0):
+        self.fitfunc = None
+        self.fitparam = None
+        self.fitcolumns = None
 
+    def plot(self, ax=None, show=False, plot_fitfunc=True):
+        if ax is None:
+            import matplotlib.pyplot as plt
+            ax = plt.gca()
+
+        lines = []
+        for i in range(self.rates[0].nions):
+            l = None
+            for j, rate in enumerate(self.rates):
+                if self.fitparam != None:
+                    norm = self.fitparam[0]/self.fitparam[j]
+                else:
+                    norm = 1.
+
+                if l==None:
+                    l = ax.errorbar(rate.time, rate.data_mean[i]*norm, yerr=rate.data_std[i]*norm, label=rate.ionname[i],
+                        fmt = "o")
+                    color = l.get_children()[0].get_color()
+                else:
+                    l = ax.errorbar(rate.time, rate.data_mean[i]*norm, yerr=rate.data_std[i]*norm,
+                        fmt = "o", color=color)
+            lines.append(l)
+
+        if self.fitfunc != None:
+            mintime = np.min([np.min(r.time) for r in self.rates])
+            maxtime = np.max([np.max(r.time) for r in self.rates])
+            x = np.linspace(mintime, maxtime, 1000)
+
+
+            p = list([self.fitparam[0]]) + list(self.fitparam[len(self.rates):])
+            if len(self.fitcolumns) > 1:
+                for i, column in enumerate(self.fitcolumns):
+                    ax.plot(x, self.fitfunc(p, x)[i], c=lines[column].get_children()[0].get_color(),\
+                        )
+            else:
+                column = self.fitcolumns[0]
+                ax.plot(x, self.fitfunc(p, x), c=lines[column].get_children()[0].get_color(),\
+                    )
+
+        if show == True:
+            ax.set_yscale("log")
+            ax.legend()
+            plt.show()
+
+    def fit_decay(self, p0=[.1], nions=60., columns=[0]):
+
+        self.fitcolumns=columns
         nrates = len(self.rates)
         fitfunc = lambda p, x: p[0]*np.exp(-x*p[1])
-        self.fitfunc = fitfunc  #XXX hack
-        errfunc = lambda p, x, y, xerr: (fitfunc(p, x)-y)/(xerr+0.02)
+        self.fitfunc = fitfunc
+
+        def errfunc( p, x, y, xerr):
+            sigma_min = 0.01
+            retval = (fitfunc(p, x)-y[columns,:])/\
+                (xerr[columns,:] + sigma_min)
+            return retval.ravel()
 
         def errfunc_multi(p, rates):
             # p[0] is normalization factor (# of ions)
             err = []
             for i in range(nrates):
                 pi = list([p[i]])+list(p[nrates:])
-                err.append(errfunc(pi, rates[i].time, rates[i].data_mean[column,:], rates[i].data_std[column,:]))
+                err.append(errfunc(pi, rates[i].time, rates[i].data_mean, rates[i].data_std))
+            print("err = ", np.sum(np.hstack(err)**2))
             return np.hstack(err)
 
-
         p0 = [nions]*nrates + p0
-        return self.fitter(p0, errfunc_multi, (self.rates,))
+        self.fitparam, sigma, pval = self.fitter(p0, errfunc_multi, (self.rates,))
+        return self.fitparam, sigma, pval
+
 
 
     def fitOH(self, p0=[10., 1, 0.01], nions=100., OH_loss=False, OH_injection=False):
