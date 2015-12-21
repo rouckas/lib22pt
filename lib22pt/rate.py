@@ -291,13 +291,16 @@ class Rate:
 
     def _fit(self, fitfunc, p0, columns, mask=slice(None), bounds=None):
         self.fitfunc = fitfunc # store the fitfunc for later
+        self.fitcolumns = columns
         def errfunc( p, x, y, xerr):
-            sigma_min = 0.02
+            sigma_min = 0.01
             retval = (fitfunc(p, x)-y[columns,:])/\
                 (xerr[columns,:] + sigma_min)
+            #print(p, np.sum(retval**2))
             return retval.ravel()
         args=(self.time[mask], self.data_mean[:,mask], self.data_std[:,mask])
-        return self.fitter(p0, errfunc, args, bounds)
+        self.fitparam, sigma, pval = self.fitter(p0, errfunc, args, bounds)
+        return self.fitparam, sigma, pval
 
 
     def fit_decay(self, p0=[60.0, .1], columns=0, mask=slice(None)):
