@@ -716,7 +716,7 @@ class MultiRate(Rate):
             for i in range(nrates):
                 pi = list([p[i]])+list(p[nrates:])
                 err.append(errfunc(pi, rates[i].time, rates[i].data_mean, rates[i].data_std))
-            print("err = ", np.sum(np.hstack(err)**2))
+            #print("err = ", np.sum(np.hstack(err)**2))
             return np.hstack(err)
 
 
@@ -724,7 +724,7 @@ class MultiRate(Rate):
         self.fitparam, sigma, pval = self.fitter(p0, errfunc_multi, (self.rates,))
         return self.fitparam, sigma, pval
 
-    def fit_NHn_nodisc(self, p0=[10., 100., 100., 10., 10., 10., .1, .1, .1, .1, .1], nions=400, columns=[0,1,2,3,4,5]):
+    def fit_NHn_nodisc(self, p0=[10., 100., 100., 10., 10., 10., .1, .1, .1, .1, .1, .1], nions=400, columns=[0,1,2,3,4,5]):
         self.fitcolumns=columns
         from scipy.integrate import odeint
         nrates = len(self.rates)
@@ -755,7 +755,7 @@ class MultiRate(Rate):
             for i in range(nrates):
                 pi = list([p[i]])+list(p[nrates:])
                 err.append(errfunc(pi, rates[i].time, rates[i].data_mean, rates[i].data_std))
-            print("err = ", np.sum(np.hstack(err)**2))
+            #print("err = ", np.sum(np.hstack(err)**2))
             return np.hstack(err)
 
 
