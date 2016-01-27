@@ -232,7 +232,7 @@ class Rate:
 
         #self.data[self.data<120] = 130
 
-    def plot(self, ax=None, show=False, plot_fitfunc=True):
+    def plot(self, ax=None, show=False, plot_fitfunc=True, symbols=["o", "s", "v", "^", "D", "h"], fitfmt="-", fitcolor=None):
         if ax is None:
             import matplotlib.pyplot as plt
             ax = plt.gca()
@@ -240,16 +240,25 @@ class Rate:
         lines = []
         for i in range(self.nions):
             l = ax.errorbar(self.time, self.data_mean[i], yerr=self.data_std[i], label=self.ionname[i],
-                    fmt = "o")
+                    fmt = symbols[i])
             lines.append(l)
 
         if self.fitfunc != None:
             x = np.linspace(np.min(self.time), np.max(self.time))
-            ax.plot(x, self.fitfunc(self.fitparam, x), c=lines[self.fitcolumns].get_children()[0].get_color(),\
-                    label="p="+str(self.fitparam))
+            if len(self.fitcolumns) > 1:
+                for i, column in enumerate(self.fitcolumns):
+                    if fitcolor == None: c = lines[column].get_children()[0].get_color()
+                    else: c = fitcolor
+                    ax.plot(x, self.fitfunc(self.fitparam, x)[i], fitfmt, c=c)
+            else:
+                column = self.fitcolumns[0]
+                if fitcolor == None: c = lines[column].get_children()[0].get_color()
+                else: c = fitcolor
+                ax.plot(x, self.fitfunc(self.fitparam, x), fitfmt, c=c)
 
         if show == True:
             ax.set_yscale("log")
+            ax.set_title("p="+str(self.fitparam))
             ax.legend()
             plt.show()
 
