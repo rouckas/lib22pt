@@ -765,6 +765,54 @@ class MultiRate(Rate):
         self.fitparam, sigma, pval = self.fitter(p0, errfunc_multi, (self.rates,))
         return self.fitparam, sigma, pval
 
+    def fit_NHn_nodisc_relaxation(self, p0=[10., 100., 100., 10., 10., 10., 10., .1, .1, .1, .1, .1, .1], nions=400, columns=[0,1,2,3,4,5]):
+        self.fitcolumns=columns
+        from scipy.integrate import odeint
+        nrates = len(self.rates)
+        def fitfunc(p, x):
+            eqn = lambda y, x: [\
+                    # N+
+                    -p[1]*y[0],\
+                    # NH+
+                    (p[1]*y[0] - p[2]*y[1] - p[5]*y[1]),\
+                    # NH2+
+                    (p[2]*y[1] - p[3]*y[2]),\
+                    # NH3+ relaxed
+                    (p[7]*y[6] - p[4]*y[3]),\
+                    # NH4+
+                    (p[4]*y[3] + p[8]*y[6]),\
+                    # H3+
+                    (p[5]*y[1] - p[6]*y[5]),\
+                    # excited NH3+
+                    (p[3]*y[2] - p[7]*y[6] - p[8]*y[6]),\
+                    ]
+            y0 = [p[0], p[9], p[10], p[11], p[12], p[13], 0.]
+            t = np.r_[0, x]
+            y = odeint(eqn, y0, t, mxstep=10000)
+            res = y[1:,[0,1,2,3,4,5]]
+            res[:,3] += y[1:,6] # add the relaxed and excite NH3+
+            return res.T
+        self.fitfunc = fitfunc  #XXX hack
+        def errfunc( p, x, y, xerr):
+            sigma_min = 0.01
+            retval = (fitfunc(p, x)-y[columns,:])/\
+                (xerr[columns,:] + sigma_min)
+            return retval.ravel()
+
+        def errfunc_multi(p, rates):
+            # p[0] is normalization factor (# of ions)
+            err = []
+            for i in range(nrates):
+                pi = list([p[i]])+list(p[nrates:])
+                err.append(errfunc(pi, rates[i].time, rates[i].data_mean, rates[i].data_std))
+            print("err = ", np.sum(np.hstack(err)**2))
+            return np.hstack(err)
+
+
+        p0 = [nions]*nrates + list(p0)
+        self.fitparam, sigma, pval = self.fitter(p0, errfunc_multi, (self.rates,))
+        return self.fitparam, sigma, pval
+
     def fitOH(self, p0=[10., 1, 0.01], nions=100., OH_loss=False, OH_injection=False):
     #def fitOH(self, p0=[260, 1., 1., 0.01], full_output=False):
         #fitfuncinc = lambda p, x: p[0]*(1-np.exp(-x/p[1]))+p[2]
