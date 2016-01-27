@@ -303,11 +303,11 @@ class Rate:
         return self.fitparam, sigma, pval
 
 
-    def fit_decay(self, p0=[60.0, .1], columns=0, mask=slice(None)):
+    def fit_decay(self, p0=[60.0, .1], columns=[0], mask=slice(None)):
         fitfunc = lambda p, x: p[0]*np.exp(-x*p[1])
         return self._fit(fitfunc, p0, columns, mask)
 
-    def fit_ode_mpmath(self, p0=[60.0, .1], columns=0):
+    def fit_ode_mpmath(self, p0=[60.0, .1], columns=[0]):
         from mpmath import odefun
         def fitfunc(p, x):
             eqn = lambda x, y: -p[1]*y
@@ -319,7 +319,7 @@ class Rate:
         return self._fit(fitfunc, p0, columns)
 
 
-    def fit_ode_scipy(self, p0=[60.0, .1], columns=0):
+    def fit_ode_scipy(self, p0=[60.0, .1], columns=[0]):
         from scipy.integrate import odeint
         def fitfunc(p, x):
             eqn = lambda y, x: -p[1]*y
@@ -330,12 +330,12 @@ class Rate:
         return self._fit(fitfunc, p0, columns)
 
 
-    def fit_inc(self, p0=[1.0, .01, 0.99], columns=1):
+    def fit_inc(self, p0=[1.0, .01, 0.99], columns=[1]):
         #fitfuncinc = lambda p, x: p[0]*(1-np.exp(-x/p[1]))+p[2]
         fitfunc = lambda p, x: -abs(p[0])*np.exp(-x/abs(p[1]))+abs(p[2])
         return self._fit(fitfunc, p0, columns)
     
-    def fit_equilib(self, p0=[70.0, .1, 1], columns=0):
+    def fit_equilib(self, p0=[70.0, .1, 1], columns=[0]):
         fitfunc = lambda p, x: abs(p[0])*np.exp(-x/abs(p[1]))+abs(p[2])
         return self._fit(fitfunc, p0, columns)
 
