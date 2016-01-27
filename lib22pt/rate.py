@@ -611,7 +611,7 @@ class MultiRate(Rate):
         self.fitparam = None
         self.fitcolumns = None
 
-    def plot(self, ax=None, show=False, plot_fitfunc=True):
+    def plot(self, ax=None, show=False, plot_fitfunc=True, symbols=["o", "s", "v", "^", "D", "h"], fitfmt="-", fitcolor=None):
         if ax is None:
             import matplotlib.pyplot as plt
             ax = plt.gca()
@@ -627,11 +627,11 @@ class MultiRate(Rate):
 
                 if l==None:
                     l = ax.errorbar(rate.time, rate.data_mean[i]*norm, yerr=rate.data_std[i]*norm, label=rate.ionname[i],
-                        fmt = "o")
+                        fmt = symbols[i])
                     color = l.get_children()[0].get_color()
                 else:
                     l = ax.errorbar(rate.time, rate.data_mean[i]*norm, yerr=rate.data_std[i]*norm,
-                        fmt = "o", color=color)
+                        fmt = symbols[i], color=color)
             lines.append(l)
 
         if self.fitfunc != None:
@@ -643,12 +643,14 @@ class MultiRate(Rate):
             p = list([self.fitparam[0]]) + list(self.fitparam[len(self.rates):])
             if len(self.fitcolumns) > 1:
                 for i, column in enumerate(self.fitcolumns):
-                    ax.plot(x, self.fitfunc(p, x)[i], c=lines[column].get_children()[0].get_color(),\
-                        )
+                    if fitcolor == None: c = lines[column].get_children()[0].get_color()
+                    else: c = fitcolor
+                    ax.plot(x, self.fitfunc(p, x)[i], fitfmt, c=c)
             else:
                 column = self.fitcolumns[0]
-                ax.plot(x, self.fitfunc(p, x), c=lines[column].get_children()[0].get_color(),\
-                    )
+                if fitcolor == None: c = lines[column].get_children()[0].get_color()
+                else: c = fitcolor
+                ax.plot(x, self.fitfunc(p, x), fitfmt, c=c)
 
         if show == True:
             ax.set_yscale("log")
