@@ -166,6 +166,8 @@ class Rate:
         self.fitfunc = None
         self.fitparam = None
         self.fitcolumns = None
+        self.fitmask = slice(None)
+        self.fit_t0 = 0
 
     def average(self):
         data_mean = np.mean(self.data, axis=2)
@@ -623,9 +625,13 @@ class MultiRate(Rate):
         for fname in fnames:
             self.rates.append(Rate(directory+fname, full_data=True))
 
+        # if True, a normalization factor for each rate with respect to rates[0] is a free fitting param
+        self.normalized = True
+
         self.fitfunc = None
         self.fitparam = None
         self.fitcolumns = None
+        self.fitmask = slice(None)
 
     def plot(self, ax=None, show=False, plot_fitfunc=True, symbols=["o", "s", "v", "^", "D", "h"], fitfmt="-", fitcolor=None):
         if ax is None:
@@ -636,7 +642,7 @@ class MultiRate(Rate):
         for i in range(self.rates[0].nions):
             l = None
             for j, rate in enumerate(self.rates):
-                if self.fitparam != None:
+                if self.fitparam != None and self.normalized:
                     norm = self.fitparam[0]/self.fitparam[j]
                 else:
                     norm = 1.
@@ -650,23 +656,36 @@ class MultiRate(Rate):
                         fmt = symbols[i], color=color)
             lines.append(l)
 
+        # plot sum
+        for j, rate in enumerate(self.rates):
+            if self.fitparam != None and self.normalized:
+                norm = self.fitparam[0]/self.fitparam[j]
+            else:
+                norm = 1.
+            S = np.sum(rate.data_mean, axis=0)
+            ax.plot(rate.time, S, ".", c="gray")
+            ax.plot(rate.time, S*norm, ".", c="k")
+
+
         if self.fitfunc != None:
-            mintime = np.min([np.min(r.time) for r in self.rates])
-            maxtime = np.max([np.max(r.time) for r in self.rates])
-            x = np.linspace(mintime, maxtime, 1000)
+            mintime = np.min([np.min(r.time[self.fitmask]) for r in self.rates])
+            maxtime = np.max([np.max(r.time[self.fitmask]) for r in self.rates])
+            x = np.linspace(mintime, maxtime, 1000)-self.fit_t0
 
 
-            p = list([self.fitparam[0]]) + list(self.fitparam[len(self.rates):])
+            p = list([self.fitparam[0]]) + list(self.fitparam[len(self.rates):]) if self.normalized else self.fitparam
+            fit = self.fitfunc(p, x)
             if len(self.fitcolumns) > 1:
                 for i, column in enumerate(self.fitcolumns):
                     if fitcolor == None: c = lines[column].get_children()[0].get_color()
                     else: c = fitcolor
-                    ax.plot(x, self.fitfunc(p, x)[i], fitfmt, c=c)
+                    ax.plot(x+self.fit_t0, fit[i], fitfmt, c=c)
+                ax.plot(x+self.fit_t0, np.sum(fit, axis=0), c="k")
             else:
                 column = self.fitcolumns[0]
                 if fitcolor == None: c = lines[column].get_children()[0].get_color()
                 else: c = fitcolor
-                ax.plot(x, self.fitfunc(p, x), fitfmt, c=c)
+                ax.plot(x+self.fit_t0, fit, fitfmt, c=c)
 
         if show == True:
             ax.set_yscale("log")
