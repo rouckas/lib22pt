@@ -142,6 +142,13 @@ class Rate:
             data = data[:,:,indices]
 
         # XXX frequency is sometimes wrong in the files
+        # use some heuristics to estimate the frequency
+        # repetition time is usually set in multiples of 0.1s
+        measurement_time = np.ceil(time[-1]/0.1)*0.1
+        if frequency*measurement_time > 1.1 or frequency*measurement_time < 0.4:
+            print("Recorded frequency in " + fname + " is probably wrong. Using estimate %f" % (1/measurement_time))
+            frequency = 1/measurement_time
+        # this is later used to estimate Poisson error
         self.total_iterations = ioniter[:,None]*integration*frequency*self.niter
 
         self.nions = nions
