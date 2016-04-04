@@ -708,12 +708,11 @@ class MultiRate(Rate):
             ax.legend()
             plt.show()
 
-    def fit_decay(self, p0=[.1], nions=60., columns=[0]):
-
-        self.fitcolumns=columns
-        nrates = len(self.rates)
-        fitfunc = lambda p, x: p[0]*np.exp(-x*p[1])
-        self.fitfunc = fitfunc
+    def _fit(self, fitfunc, p0, columns, mask=slice(None), bounds=None, t0=0.):
+        self.fitfunc = fitfunc # store the fitfunc for later
+        self.fitcolumns = columns
+        self.fit_t0 = t0
+        self.fitmask = mask
 
         def errfunc( p, x, y, xerr):
             sigma_min = 0.01
@@ -724,15 +723,38 @@ class MultiRate(Rate):
         def errfunc_multi(p, rates):
             # p[0] is normalization factor (# of ions)
             err = []
-            for i in range(nrates):
-                pi = list([p[i]])+list(p[nrates:])
-                err.append(errfunc(pi, rates[i].time, rates[i].data_mean, rates[i].data_std))
-            print("err = ", np.sum(np.hstack(err)**2))
+            for i, rate in enumerate(rates):
+                pi = (list([p[i]])+list(p[len(self.rates):])) if self.normalized else p
+                err.append(errfunc(pi, rate.time[mask] - t0, rate.data_mean[:,mask], rate.data_std[:,mask]))
+
+            if bounds is not None:
+                penalty = [weight*(np.fmax(lo-pp, 0) + np.fmax(0, pp-hi))\
+                        for pp, (lo, hi, weight) in zip(p, bounds)]
+                err.append(np.array(penalty))
+            #print("err = ", np.sum(np.hstack(err)**2))
             return np.hstack(err)
 
-        p0 = [nions]*nrates + p0
         self.fitparam, sigma, pval = self.fitter(p0, errfunc_multi, (self.rates,))
         return self.fitparam, sigma, pval
+
+
+    def fit_decay(self, p0=[.1], nions=60., columns=[0], mask=slice(None), bounds=None, t0=0.):
+
+        fitfunc = lambda p, x: p[0]*np.exp(-x*p[1])
+
+        p0 = ([nions]*len(self.rates) if self.normalized else [nions]) + list(p0)
+        return self._fit(fitfunc, p0, columns, mask, bounds, t0)
+
+
+    def fit_change(self, p0=[10., 0.0], nions=10, columns=[0,1], mask=slice(None), bounds=None, t0=0., loss=0.):
+        # p = [r1, N2(0)]
+        fitfunc = lambda p, x: (
+                np.exp(-x*p[1])*p[0],
+                np.exp(-x*loss)*( p[2] + p[0]*p[1]/(loss-p[1])*(np.exp(-x*(p[1]-loss))-1))
+                )
+
+        p0 = ([nions]*len(self.rates) if self.normalized else [nions]) + list(p0)
+        return self._fit(fitfunc, p0, columns, mask, bounds, t0)
 
 
     def fit_NHn(self, p0=[10., 100., 100., 10., 1., 1., 1., 1., .1, .1, .1, .1], nions=400, columns=[0,1,2,3,4]):
