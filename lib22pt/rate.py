@@ -646,7 +646,8 @@ class MultiRate(Rate):
         self.fitcolumns = None
         self.fitmask = slice(None)
 
-    def plot(self, ax=None, show=False, plot_fitfunc=True, symbols=["o", "s", "v", "^", "D", "h"], fitfmt="-", fitcolor=None):
+    def plot(self, ax=None, show=False, plot_fitfunc=True, symbols=["o", "s", "v", "^", "D", "h"],\
+            fitfmt="-", fitcolor=None, hide_uncertain=False):
         if ax is None:
             import matplotlib.pyplot as plt
             ax = plt.gca()
@@ -660,13 +661,14 @@ class MultiRate(Rate):
                 else:
                     norm = 1.
 
+                I = rate.data_std[i] < rate.data_mean[i] if hide_uncertain else slice(None)
                 if l==None:
-                    l = ax.errorbar(rate.time, rate.data_mean[i]*norm, yerr=rate.data_std[i]*norm, label=rate.ionname[i],
-                        fmt = symbols[i])
+                    l = ax.errorbar(rate.time[I], rate.data_mean[i][I]*norm, yerr=rate.data_std[i][I]*norm, label=rate.ionname[i],
+                        fmt = symbols[i], markeredgewidth=0)
                     color = l.get_children()[0].get_color()
                 else:
-                    l = ax.errorbar(rate.time, rate.data_mean[i]*norm, yerr=rate.data_std[i]*norm,
-                        fmt = symbols[i], color=color)
+                    l = ax.errorbar(rate.time[I], rate.data_mean[i][I]*norm, yerr=rate.data_std[i][I]*norm,
+                        fmt = symbols[i], color=color, markeredgewidth=0)
             lines.append(l)
 
         # plot sum
@@ -676,14 +678,15 @@ class MultiRate(Rate):
             else:
                 norm = 1.
             S = np.sum(rate.data_mean, axis=0)
-            ax.plot(rate.time, S, ".", c="gray")
-            ax.plot(rate.time, S*norm, ".", c="k")
+            label = "sum" if j==0 else None
+            ax.plot(rate.time, S*norm, ".", c="0.5", label=label)
 
 
         if self.fitfunc != None:
             mintime = np.min([np.min(r.time[self.fitmask]) for r in self.rates])
             maxtime = np.max([np.max(r.time[self.fitmask]) for r in self.rates])
-            x = np.linspace(mintime, maxtime, 1000)-self.fit_t0
+            x = np.logspace(np.log10(mintime), np.log10(maxtime), 500)-self.fit_t0
+            x = x[x>=0.]
 
 
             p = list([self.fitparam[0]]) + list(self.fitparam[len(self.rates):]) if self.normalized else self.fitparam
