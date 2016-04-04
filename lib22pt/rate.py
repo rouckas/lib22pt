@@ -756,135 +756,91 @@ class MultiRate(Rate):
         p0 = ([nions]*len(self.rates) if self.normalized else [nions]) + list(p0)
         return self._fit(fitfunc, p0, columns, mask, bounds, t0)
 
-
-    def fit_NHn(self, p0=[10., 100., 100., 10., 1., 1., 1., 1., .1, .1, .1, .1], nions=400, columns=[0,1,2,3,4]):
-        self.fitcolumns=columns
+    def fit_NHn_relaxation(self, p0=[10., 100., 100., 10., 10., 10., 10., .1, .1, .1, .1, .1, .1], nions=400,\
+            columns=[0,1,2,3,4,5], mask=slice(None), t0=0, discrimination=False, NH3loss=0.05, H3disc=1.):
         from scipy.integrate import odeint
-        nrates = len(self.rates)
+
+        self.fitparamnames = [\
+                "NH+ rate", "NH2+ rate", "NH3+ exc rate", "NH4+ rate", "H3+ rate", "-H3+ rate", "NH3+ relax rate",\
+                "NH4+ from exc rate", "NH+(0)", "NH2+(0)", "NH3+(0)", "NH4+(0)", "H3+(0)"]
+
         def fitfunc(p, x):
-            disc1 = p[5]
-            disc2 = p[6]
-            disc3 = p[7]
-            disc4 = p[8]
-            eqn = lambda y, x: [\
-                    -p[1]*y[0],\
-                    (p[1]*y[0] - p[2]*y[1])/disc1,\
-                    (p[2]*y[1] - p[3]*y[2])/disc2,\
-                    (p[3]*y[2] - p[4]*y[3])/disc3,\
-                    (p[4]*y[3])/disc4,\
-                    ]
-            y0 = [p[0], p[9], p[10], p[11], p[12]]
-            t = np.r_[0, x]
-            y = odeint(eqn, y0, t)
-            return y[1:,[0,1,2,3,4]].T
-        self.fitfunc = fitfunc  #XXX hack
-
-        def errfunc( p, x, y, xerr):
-            sigma_min = 0.01
-            retval = (fitfunc(p, x)-y[columns,:])/\
-                (xerr[columns,:] + sigma_min)
-            return retval.ravel()
-
-        def errfunc_multi(p, rates):
-            # p[0] is normalization factor (# of ions)
-            err = []
-            for i in range(nrates):
-                pi = list([p[i]])+list(p[nrates:])
-                err.append(errfunc(pi, rates[i].time, rates[i].data_mean, rates[i].data_std))
-            #print("err = ", np.sum(np.hstack(err)**2))
-            return np.hstack(err)
-
-
-        p0 = [nions]*nrates + list(p0)
-        self.fitparam, sigma, pval = self.fitter(p0, errfunc_multi, (self.rates,))
-        return self.fitparam, sigma, pval
-
-    def fit_NHn_nodisc(self, p0=[10., 100., 100., 10., 10., 10., .1, .1, .1, .1, .1, .1], nions=400, columns=[0,1,2,3,4,5]):
-        self.fitcolumns=columns
-        from scipy.integrate import odeint
-        nrates = len(self.rates)
-        def fitfunc(p, x):
-            eqn = lambda y, x: [\
-                    -p[1]*y[0] - p[7]*y[0],\
-                    (p[1]*y[0] - p[2]*y[1] - p[5]*y[1]),\
-                    (p[2]*y[1] - p[3]*y[2]),\
-                    (p[3]*y[2] - p[4]*y[3]),\
-                    (p[4]*y[3] + p[7]*y[0]),\
-                    (p[5]*y[1] - p[6]*y[5]),\
-                    ]
-            y0 = [p[0], p[8], p[9], p[10], p[11], p[12]]
-            t = np.r_[0, x]
-            y = odeint(eqn, y0, t)
-            return y[1:,[0,1,2,3,4,5]].T
-        self.fitfunc = fitfunc  #XXX hack
-        def errfunc( p, x, y, xerr):
-            sigma_min = 0.01
-            retval = (fitfunc(p, x)-y[columns,:])/\
-                (xerr[columns,:] + sigma_min)
-            #print(p, np.sum(retval**2))
-            return retval.ravel()
-
-        def errfunc_multi(p, rates):
-            # p[0] is normalization factor (# of ions)
-            err = []
-            for i in range(nrates):
-                pi = list([p[i]])+list(p[nrates:])
-                err.append(errfunc(pi, rates[i].time, rates[i].data_mean, rates[i].data_std))
-            #print("err = ", np.sum(np.hstack(err)**2))
-            return np.hstack(err)
-
-
-        p0 = [nions]*nrates + list(p0)
-        self.fitparam, sigma, pval = self.fitter(p0, errfunc_multi, (self.rates,))
-        return self.fitparam, sigma, pval
-
-    def fit_NHn_nodisc_relaxation(self, p0=[10., 100., 100., 10., 10., 10., 10., .1, .1, .1, .1, .1, .1], nions=400, columns=[0,1,2,3,4,5]):
-        self.fitcolumns=columns
-        from scipy.integrate import odeint
-        nrates = len(self.rates)
-        def fitfunc(p, x):
+            if discrimination:
+                if len(p)!=14+5: raise RuntimeError("fitfunc: wrong number of parameters")
+                disc = p[-5:]
+            else:
+                if len(p)!=14: raise RuntimeError("fitfunc: wrong number parameters")
+                disc = [1]*5
+            #print(" ".join("%7.2f" % ii for ii in p))
+            N, NH, NH2, NH3, NH4, H3, NH3e = range(7)
             eqn = lambda y, x: [\
                     # N+
-                    -p[1]*y[0],\
+                    -p[1]*y[N],\
                     # NH+
-                    (p[1]*y[0] - p[2]*y[1] - p[5]*y[1]),\
+                    (p[1]*y[N] - p[2]*y[NH] - p[5]*y[NH]),\
                     # NH2+
-                    (p[2]*y[1] - p[3]*y[2]),\
+                    (p[2]*y[NH] - p[3]*y[NH2]),\
                     # NH3+ relaxed
-                    (p[7]*y[6] - p[4]*y[3]),\
+                    (p[7]*y[NH3e] - p[4]*y[NH3] - NH3loss*y[NH3]),\
                     # NH4+
-                    (p[4]*y[3] + p[8]*y[6]),\
+                    (p[4]*y[NH3] + p[8]*y[NH3e]),\
                     # H3+
-                    (p[5]*y[1] - p[6]*y[5]),\
+                    (p[5]*y[NH] - p[6]*y[H3]),\
                     # excited NH3+
-                    (p[3]*y[2] - p[7]*y[6] - p[8]*y[6]),\
+                    (p[3]*y[NH2] - p[7]*y[NH3e] - p[8]*y[NH3e]),\
                     ]
             y0 = [p[0], p[9], p[10], p[11], p[12], p[13], 0.]
             t = np.r_[0, x]
             y = odeint(eqn, y0, t, mxstep=10000)
             res = y[1:,[0,1,2,3,4,5]]
-            res[:,3] += y[1:,6] # add the relaxed and excite NH3+
+            res[:,3] += y[1:,NH3e] # add the relaxed and excite NH3+
+            res *= np.array([1] + list(disc))
+            res[:,H3] *= H3disc
             return res.T
-        self.fitfunc = fitfunc  #XXX hack
-        def errfunc( p, x, y, xerr):
-            sigma_min = 0.01
-            retval = (fitfunc(p, x)-y[columns,:])/\
-                (xerr[columns,:] + sigma_min)
-            return retval.ravel()
-
-        def errfunc_multi(p, rates):
-            # p[0] is normalization factor (# of ions)
-            err = []
-            for i in range(nrates):
-                pi = list([p[i]])+list(p[nrates:])
-                err.append(errfunc(pi, rates[i].time, rates[i].data_mean, rates[i].data_std))
-            print("err = ", np.sum(np.hstack(err)**2))
-            return np.hstack(err)
 
 
-        p0 = [nions]*nrates + list(p0)
-        self.fitparam, sigma, pval = self.fitter(p0, errfunc_multi, (self.rates,))
-        return self.fitparam, sigma, pval
+        p0 = ([nions]*len(self.rates) if self.normalized else [nions]) + list(p0)
+        bounds = [(0, 1e9, 1e2)]*len(p0)
+        if discrimination:
+            for i in range(5):
+                bounds[len(p0)-1-i] = (1,1,1e2)
+            bounds[len(p0)-1] = (0,1,1e2)
+
+        return self._fit(fitfunc, p0, columns, mask, bounds, t0)
+
+    def fit_NHn_nodisc_short(self, p0=[10., 100., 100., 10., 10., 10., .1, .1, .1, .1], nions=400,\
+            columns=[0,1,2,3,5], mask=slice(None), t0=0, H3disc = 1.):
+        from scipy.integrate import odeint
+
+        def fitfunc(p, x):
+            if len(p)>11: raise RuntimeError("fitfunc: too many parameters")
+            #print(", ".join("%7.2f" % ii for ii in p))
+            N, NH, NH2, NH3, NH4, H3 = range(6)
+            eqn = lambda y, x: [\
+                    # N+
+                    -p[1]*y[N],\
+                    # NH+
+                    (p[1]*y[N] - p[2]*y[NH] - p[5]*y[NH]),\
+                    # NH2+
+                    (p[2]*y[NH] - p[3]*y[NH2]),\
+                    # NH3+ relaxed
+                    (p[3]*y[NH2] - p[4]*y[NH3]),\
+                    # H3+
+                    (p[5]*y[NH] - p[6]*y[H3]),\
+                    ]
+            y0 = [p[0], p[7], p[8], p[9], p[10]]
+            t = np.r_[0, x]
+            y = odeint(eqn, y0, t, mxstep=10000)
+            res = y[1:,[0,1,2,3,4]]
+            res[:,H3] *= H3disc
+            return res.T
+
+
+        p0 = ([nions]*len(self.rates) if self.normalized else [nions]) + list(p0)
+        bounds = [(0, 1e9, 1e3)]*len(p0)
+
+        return self._fit(fitfunc, p0, columns, mask, bounds, t0)
+
 
     def fitOH(self, p0=[10., 1, 0.01], nions=100., OH_loss=False, OH_injection=False):
     #def fitOH(self, p0=[260, 1., 1., 0.01], full_output=False):
