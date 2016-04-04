@@ -23,6 +23,21 @@ def concentrationHe(temp, Paml22PT, PamlSIS, f_He_22PT=140.):
     f_SIS = 5.          # rough estimate, mostly negligible
     return concentration(temp, Paml22PT, f_He_22PT, PamlSIS, f_SIS)
 
+_verbosity = 2
+def set_verbosity(level):
+    """
+        0: serious/unrecoverable error
+        1: recoverable error
+        2: warning
+        3: information
+    """
+    global _verbosity
+    _verbosity = level
+
+def warn(message, level):
+    if level <= _verbosity:
+        print(message)
+
 class Rate:
     def __init__(self, fname, full_data=False, skip_iter=[]):
         import re
@@ -73,12 +88,12 @@ class Rate:
                     ioniter = ioniter[:nions]
 
                 if len(ioniter) < nions:
-                    print("Corrupt file", fname, "Iterations for all species not recorded, guessing...")
+                    warn("Corrupt file " + str(fname) + ": Iterations for all species not recorded, guessing...", 1)
                     while len(ioniter) < nions:
                         ioniter.append(ioniter[-1])
 
                 if len(ionname) < nions:
-                    print("Corrupt file", fname, "Names for all species not recorded, making something up...")
+                    warn("Corrupt file " + str(fname) +  ": Names for all species not recorded, making something up...", 2)
                     while len(ionname) < nions:
                         ionname.append("Ion%d" % (len(ionname)+1,))
 
@@ -92,7 +107,7 @@ class Rate:
                     newtime = float(toks[0])
                 except ValueError:
                     if pointno != npoints:
-                        print(("Corrupt file " + fname + " trying to guess number of points"))
+                        warn("Corrupt file " + fname + " trying to guess number of points", 2)
                         npoints = pointno
                         data.resize((nions, npoints, self.niter)) 
                     time = np.array(time)
@@ -105,7 +120,7 @@ class Rate:
                 if toks[0] == "Iteration":
                     iterno = int(toks[1])-1
                     if iterno+1 > self.niter:
-                        print(("Corrupt file " + fname + " trying to guess number of iterations"))
+                        warn("Corrupt file " + fname + " trying to guess number of iterations", 2)
                         #msg = "Corrupt file: " + fname
                         #raise IOError(msg)
                         self.niter = iterno+1
@@ -130,8 +145,6 @@ class Rate:
                     data = newdata
                     #data.resize((nions, npoints, iterno+1))
                 self.niter = iterno+1
-                #XXX works for smaller niter only
-                #raise IOError(msg)
             data = data[:,:,:iterno+1]
         
         #print skip_iter, np.shape(skip_iter)
@@ -146,7 +159,7 @@ class Rate:
         # repetition time is usually set in multiples of 0.1s
         measurement_time = np.ceil(time[-1]/0.1)*0.1
         if frequency*measurement_time > 1.1 or frequency*measurement_time < 0.4:
-            print("Recorded frequency in " + fname + " is probably wrong. Using estimate %f" % (1/measurement_time))
+            warn("Recorded frequency in " + fname + " is probably wrong. Using estimate %f" % (1/measurement_time), 1)
             frequency = 1/measurement_time
         # this is later used to estimate Poisson error
         self.total_iterations = ioniter[:,None]*integration*frequency*self.niter
@@ -291,7 +304,7 @@ class Rate:
             raise RuntimeError(msg)
         if cov_p is None:
             return p, 1./np.zeros_like(p), 0.
-            raise RuntimeError("Optimal parameters not found: Covariance is None")
+            raise RuntimeError("Optimal parameters not found: Covariance is None: " + mesg)
         if any(np.diag(cov_p) < 0):
             raise RuntimeError("Optimal parameters not found: negative variance")
         
