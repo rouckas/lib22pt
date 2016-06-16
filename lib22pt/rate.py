@@ -38,6 +38,35 @@ def warn(message, level):
     if level <= _verbosity:
         print(message)
 
+
+def fitter(p0, errfunc, args):
+
+    from lmfit import minimize
+    result = minimize(errfunc, p0, args=args)
+
+    if not result.success:
+        msg = " Optimal parameters not found: " + result.message
+        raise RuntimeError(msg)
+
+    for i, name in enumerate(result.var_names):
+        if result.params[name].value == result.init_vals[i]:
+            warn("Warning: fitter: parameter \"%s\" was not changed, it is probably redundant"%name, 2)
+
+    from scipy.stats import chi2
+    chi = chi2.cdf(result.redchi, result.nfree)
+    if chi > 0.5: pval = -(1-chi)*2
+    else: pval = chi*2
+    pval = chi
+    return result.params, pval, result
+
+def dict2Params(dic):
+    from lmfit import Parameters
+    p = Parameters()
+    for key, val in dic.items():
+        p.add(key, value=val)
+    return p
+
+
 class Rate:
     def __init__(self, fname, full_data=False, skip_iter=[]):
         import re
@@ -283,42 +312,6 @@ class Rate:
             ax.set_title("p="+str(self.fitparam))
             ax.legend()
             plt.show()
-
-    def fitter(self, p0, errfunc, args, bounds=None):
-        if bounds==None:
-            _errfunc = errfunc
-        else:
-            def _errfunc(p, *args):
-                penalty = [weight*(np.fmax(lo-pp, 0) + np.fmax(0, pp-hi))\
-                        for pp, (lo, hi, weight) in zip(p, bounds)]
-                residuals = errfunc(p, *args)
-                #print("residuals:", np.sum(penalty**2), np.sum(residuals**2))
-                return np.hstack((residuals, penalty))
-
-        from scipy.optimize import leastsq
-        p, cov_p, info, mesg, ier \
-            = leastsq(_errfunc, p0, args=args, full_output=1, factor=0.9, maxfev=2000)
-        
-        if ier not in [1, 2, 3, 4]:
-            msg = "ier"+str(ier) + " Optimal parameters not found: " + mesg
-            raise RuntimeError(msg)
-        if cov_p is None:
-            return p, 1./np.zeros_like(p), 0.
-            raise RuntimeError("Optimal parameters not found: Covariance is None: " + mesg)
-        if any(np.diag(cov_p) < 0):
-            raise RuntimeError("Optimal parameters not found: negative variance")
-        
-        chisq = np.dot(info["fvec"], info["fvec"])
-        dof = len(info["fvec"]) - len(p)
-        sigma = np.array([np.sqrt(cov_p[i,i])*np.sqrt(chisq/dof) for i in range(len(p))])
-
-        Q = chisq/dof
-        from scipy.stats import chi2
-        chi = chi2.cdf(Q, dof)
-        #if chi > 0.5: pval = (1-chi)*2
-        #else: pval = chi*2
-        pval = chi
-        return p, sigma, pval
 
     def _fit(self, fitfunc, p0, columns, mask=slice(None), bounds=None):
         self.fitfunc = fitfunc # store the fitfunc for later
@@ -639,6 +632,7 @@ class MultiRate:
 
         # if True, a normalization factor for each rate with respect to rates[0] is a free fitting param
         self.normalized = True
+        self.norms = [1]*len(self.rates)
 
         self.fitfunc = None
         self.fitparam = None
@@ -655,10 +649,7 @@ class MultiRate:
         for i in range(self.rates[0].nions):
             l = None
             for j, rate in enumerate(self.rates):
-                if self.fitparam != None and self.normalized:
-                    norm = self.fitparam[0]/self.fitparam[j]
-                else:
-                    norm = 1.
+                norm = 1/self.norms[j]
 
                 I = rate.data_std[i] < rate.data_mean[i] if hide_uncertain else slice(None)
                 if l==None:
@@ -672,13 +663,9 @@ class MultiRate:
 
         # plot sum
         for j, rate in enumerate(self.rates):
-            if self.fitparam != None and self.normalized:
-                norm = self.fitparam[0]/self.fitparam[j]
-            else:
-                norm = 1.
             S = np.sum(rate.data_mean, axis=0)
             label = "sum" if j==0 else None
-            ax.plot(rate.time, S*norm, ".", c="0.5", label=label)
+            ax.plot(rate.time, S/self.norms[j], ".", c="0.5", label=label)
 
 
         if self.fitfunc != None:
@@ -687,9 +674,7 @@ class MultiRate:
             x = np.logspace(np.log10(mintime), np.log10(maxtime), 500)-self.fit_t0
             x = x[x>=0.]
 
-
-            p = list([self.fitparam[0]]) + list(self.fitparam[len(self.rates):]) if self.normalized else self.fitparam
-            fit = self.fitfunc(p, x)
+            fit = self.fitfunc(self.fitparam, x)
             if len(self.fitcolumns) > 1:
                 for i, column in enumerate(self.fitcolumns):
                     if fitcolor == None: c = lines[column].get_children()[0].get_color()
@@ -707,53 +692,87 @@ class MultiRate:
             ax.legend()
             plt.show()
 
-    def _fit(self, fitfunc, p0, columns, mask=slice(None), bounds=None, t0=0.):
+        return ax
+
+
+    def _fit(self, fitfunc, p0, columns, mask=slice(None), t0=0., boundweight=1e3):
         self.fitfunc = fitfunc # store the fitfunc for later
         self.fitcolumns = columns
         self.fit_t0 = t0
         self.fitmask = mask
 
-        def errfunc( p, x, y, xerr):
+        if type(p0) is dict:
+            p0 = dict2Params(p0)
+        else:
+            p0 = p0.copy()
+
+        # use custom implementation of bounded parameters, which can
+        # estimate errors even if the parameter is "forced" outside the interval
+        # idea: detect if fitted parameter is close to boundary, then make it fixed...
+        bounds = {}
+        for key, p in p0.items():
+            if np.any(np.isfinite([p.min, p.max])):
+                bounds[key] = (p.min, p.max, boundweight)
+                p.set(min=-np.inf, max=np.inf)
+        print(bounds)
+
+        def errfunc( p, x, y, xerr, norm=1):
             sigma_min = 0.01
-            retval = (fitfunc(p, x)-y[columns,:])/\
+            res = (fitfunc(p, x)*norm-y[columns,:])/\
                 (xerr[columns,:] + sigma_min)
-            return retval.ravel()
+            return res.ravel()
 
         def errfunc_multi(p, rates):
-            # p[0] is normalization factor (# of ions)
             err = []
             for i, rate in enumerate(rates):
-                pi = (list([p[i]])+list(p[len(self.rates):])) if self.normalized else p
-                err.append(errfunc(pi, rate.time[mask] - t0, rate.data_mean[:,mask], rate.data_std[:,mask]))
+                norm = p["n%d"%i].value if (i>0 and self.normalized) else 1
+                err.append(errfunc(p, rate.time[mask] - t0, rate.data_mean[:,mask], rate.data_std[:,mask], norm))
 
-            if bounds is not None:
-                penalty = [weight*(np.fmax(lo-pp, 0) + np.fmax(0, pp-hi))\
-                        for pp, (lo, hi, weight) in zip(p, bounds)]
-                err.append(np.array(penalty))
+            penalty = [weight*(np.fmax(lo-p[key], 0) + np.fmax(0, p[key]-hi))\
+                        for key, (lo, hi, weight) in bounds.items()]
+            err.append(penalty)
+
             #print("err = ", np.sum(np.hstack(err)**2))
             return np.hstack(err)
 
-        self.fitparam, sigma, pval = self.fitter(p0, errfunc_multi, (self.rates,))
-        return self.fitparam, sigma, pval
+        # If needed, the normalization factors are appended to the list of
+        # fitting parameters
+        if self.normalized:
+            for i in range(1,len(self.rates)): p0.add("n%d"%i, value=1)
+
+        self.fitparam, pval, result = fitter(p0, errfunc_multi, (self.rates,))
+
+        # extract the normalization factors
+        if self.normalized:
+            for i in range(1,len(self.rates)): self.norms[i] = self.fitparam["n%d"%i].value
+
+        return self.fitparam, pval, result
 
 
-    def fit_decay(self, p0=[.1], nions=60., columns=[0], mask=slice(None), bounds=None, t0=0.):
+    def fit_decay(self, p0, columns=[0], mask=slice(None), t0=0.):
 
-        fitfunc = lambda p, x: p[0]*np.exp(-x*p[1])
+        def fitfunc (p, x):
+            N0 = p["N0"].value
+            rate = p["rate"].value
 
-        p0 = ([nions]*len(self.rates) if self.normalized else [nions]) + list(p0)
-        return self._fit(fitfunc, p0, columns, mask, bounds, t0)
+            return N0*np.exp(-x*rate)
+
+        return self._fit(fitfunc, p0, columns, mask, t0)
 
 
     def fit_change(self, p0=[10., 0.0], nions=10, columns=[0,1], mask=slice(None), bounds=None, t0=0., loss=0.):
-        # p = [r1, N2(0)]
-        fitfunc = lambda p, x: (
-                np.exp(-x*p[1])*p[0],
-                np.exp(-x*loss)*( p[2] + p[0]*p[1]/(loss-p[1])*(np.exp(-x*(p[1]-loss))-1))
+
+        def fitfunc(p, x):
+            N0 = p["N0"].value
+            N1 = p["N1"].value
+            rate = p["rate"].value
+            loss=0
+            return (
+                np.exp(-x*rate)*N0,
+                np.exp(-x*loss)*(N1 + N0*rate/(loss-rate)*(np.exp(-x*(rate-loss))-1))
                 )
 
-        p0 = ([nions]*len(self.rates) if self.normalized else [nions]) + list(p0)
-        return self._fit(fitfunc, p0, columns, mask, bounds, t0)
+        return self._fit(fitfunc, p0, columns, mask, t0)
 
     def fit_NHn_relaxation(self, p0=[10., 100., 100., 10., 10., 10., 10., .1, .1, .1, .1, .1, .1], nions=400,\
             columns=[0,1,2,3,4,5], mask=slice(None), t0=0, discrimination=False, NH3loss=0.05, H3disc=1.):
