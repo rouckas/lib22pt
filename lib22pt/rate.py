@@ -632,11 +632,10 @@ class Rate:
         return self.fitter(p0, errfunc, args)
 
 
-class MultiRate(Rate):
+class MultiRate:
     def __init__(self, fnames, directory=""):
-        self.rates = []
-        for fname in fnames:
-            self.rates.append(Rate(directory+fname, full_data=True))
+        if isinstance(fnames, str): fnames = [fnames]
+        self.rates = [Rate(directory+fname, full_data=True) for fname in fnames]
 
         # if True, a normalization factor for each rate with respect to rates[0] is a free fitting param
         self.normalized = True
