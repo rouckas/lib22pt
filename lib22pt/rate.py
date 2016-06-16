@@ -640,13 +640,14 @@ class MultiRate:
         self.fitmask = slice(None)
 
     def plot(self, ax=None, show=False, plot_fitfunc=True, symbols=["o", "s", "v", "^", "D", "h"],\
-            fitfmt="-", fitcolor=None, hide_uncertain=False):
+            fitfmt="-", fitcolor=None, hide_uncertain=False, plot_columns=None):
         if ax is None:
             import matplotlib.pyplot as plt
             ax = plt.gca()
 
-        lines = []
-        for i in range(self.rates[0].nions):
+        lines = {}
+        if plot_columns is None: plot_columns = range(self.rates[0].nions)
+        for i in plot_columns:
             l = None
             for j, rate in enumerate(self.rates):
                 norm = 1/self.norms[j]
@@ -659,11 +660,12 @@ class MultiRate:
                 else:
                     l = ax.errorbar(rate.time[I], rate.data_mean[i][I]*norm, yerr=rate.data_std[i][I]*norm,
                         fmt = symbols[i], color=color, markeredgewidth=0)
-            lines.append(l)
+            lines[i] = l
 
         # plot sum
         for j, rate in enumerate(self.rates):
-            S = np.sum(rate.data_mean, axis=0)
+            # calculate the sum over the plotted data only
+            S = np.sum(rate.data_mean[plot_columns], axis=0)
             label = "sum" if j==0 else None
             ax.plot(rate.time, S/self.norms[j], ".", c="0.5", label=label)
 
@@ -675,17 +677,13 @@ class MultiRate:
             x = x[x>=0.]
 
             fit = self.fitfunc(self.fitparam, x)
-            if len(self.fitcolumns) > 1:
-                for i, column in enumerate(self.fitcolumns):
-                    if fitcolor == None: c = lines[column].get_children()[0].get_color()
-                    else: c = fitcolor
-                    ax.plot(x+self.fit_t0, fit[i], fitfmt, c=c)
-                ax.plot(x+self.fit_t0, np.sum(fit, axis=0), c="k")
-            else:
-                column = self.fitcolumns[0]
+            for i, column in enumerate(self.fitcolumns):
+                if column not in plot_columns: continue
                 if fitcolor == None: c = lines[column].get_children()[0].get_color()
                 else: c = fitcolor
-                ax.plot(x+self.fit_t0, fit, fitfmt, c=c)
+                ax.plot(x+self.fit_t0, fit[i], fitfmt, c=c)
+            if len(self.fitcolumns) > 1:
+                ax.plot(x+self.fit_t0, np.sum(fit, axis=0), c="k")
 
         if show == True:
             ax.set_yscale("log")
