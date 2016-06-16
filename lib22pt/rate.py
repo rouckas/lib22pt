@@ -712,7 +712,6 @@ class MultiRate:
             if np.any(np.isfinite([p.min, p.max])):
                 bounds[key] = (p.min, p.max, boundweight)
                 p.set(min=-np.inf, max=np.inf)
-        print(bounds)
 
         def errfunc( p, x, y, xerr, norm=1):
             sigma_min = 0.01
@@ -753,18 +752,17 @@ class MultiRate:
             N0 = p["N0"].value
             rate = p["rate"].value
 
-            return N0*np.exp(-x*rate)
+            return (N0*np.exp(-x*rate), )
 
         return self._fit(fitfunc, p0, columns, mask, t0)
 
 
-    def fit_change(self, p0=[10., 0.0], nions=10, columns=[0,1], mask=slice(None), bounds=None, t0=0., loss=0.):
+    def fit_change(self, p0, columns=[0,1], mask=slice(None), bounds=None, t0=0., loss=0.):
 
         def fitfunc(p, x):
             N0 = p["N0"].value
             N1 = p["N1"].value
             rate = p["rate"].value
-            loss=0
             return (
                 np.exp(-x*rate)*N0,
                 np.exp(-x*loss)*(N1 + N0*rate/(loss-rate)*(np.exp(-x*(rate-loss))-1))
