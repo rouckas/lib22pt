@@ -859,6 +859,47 @@ class MultiRate:
 
         return self._fit(fitfunc, p0, columns, mask, bounds, t0)
 
+    def lmfit_NH(self, p0={
+        "N": 100.,          "NH": 10.,
+        "NH2": 1.,          "NH3": 1.,
+        "H3": 10.,          "N15":10.,
+        "rNH":10.,          "rNH2":10.,
+        "rH3":1,            "rNH3":10,
+        "rH3d":1},\
+            columns=[0,1,2,3,4], mask=slice(None), t0=0):
+
+        from scipy.integrate import odeint
+        specnames = ["N", "NH", "NH2", "NH3", "H3", "N15"]
+        ratenames = ["rNH", "rNH2", "rH3", "rNH3", "rH3d"]
+
+        p0 = dict2Params(p0)
+        for key in p0: p0[key].set(min=0)
+        def fitfunc(p, x):
+            rNH, rNH2, rH3, rNH3, rH3d = [p[name].value for name in ratenames]
+            N, NH, NH2, NH3, H3, N15 = range(6)
+            eqn = lambda y, x: [\
+                    # N+
+                    -rNH*y[N],\
+                    # NH+
+                    -(rNH2 + rH3)*y[NH] + rNH*y[N],\
+                    # NH2+
+                    rNH2*y[NH] - rNH3*y[NH2],\
+                    # NH3+
+                    rNH3*y[NH2],\
+                    # H3+
+                    rH3*y[NH] - rH3d*y[H3],\
+                    # 15N+
+                    -rNH*y[N15],
+                    ]
+            y0 = [p[name].value for name in specnames]
+            t = np.r_[0, x]
+            y = odeint(eqn, y0, t, mxstep=10000)
+            res = y[1:,:5]
+            res[:,1] += y[1:,N15] # add the relaxed and excite NH3+
+            return res.T
+
+        return self._fit(fitfunc, p0, columns, mask, t0)
+
 
     def fitOH(self, p0=[10., 1, 0.01], nions=100., OH_loss=False, OH_injection=False):
     #def fitOH(self, p0=[260, 1., 1., 0.01], full_output=False):
