@@ -12,11 +12,11 @@ def concentration(temp, Paml22PT, f_22PT, PamlSIS=0., f_SIS=0., amltemp=300):
     # check the role of amltemp
     return (Paml22PT*f_22PT + PamlSIS*f_SIS)/k_B/np.sqrt(amltemp*temp)/10000
 
-def concentrationD2(temp, Paml22PT, PamlSIS=0., f_D2_22PT=56):
-    return concentration(temp, Paml22PT, f_D2_22PT, PamlSIS, 1.4)
+def concentrationD2(temp, Paml22PT, PamlSIS=0., f_D2_22PT=56, f_D2_SIS = 1.4):
+    return concentration(temp, Paml22PT, f_D2_22PT, PamlSIS, f_D2_SIS)
 
-def concentrationH2(temp, Paml22PT, PamlSIS, f_H2_22PT=38.2):
-    return concentration(temp, Paml22PT, f_H2_22PT, PamlSIS, 1.4)
+def concentrationH2(temp, Paml22PT, PamlSIS, f_H2_22PT=38.2, f_H2_SIS=1.4):
+    return concentration(temp, Paml22PT, f_H2_22PT, PamlSIS, f_H2_SIS)
 
 def concentrationHe(temp, Paml22PT, PamlSIS, f_He_22PT=140.):
     #f_22PT = 140.      # calibration from 2013-02-22
