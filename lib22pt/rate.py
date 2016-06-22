@@ -21,6 +21,35 @@ def warn(message, level):
     if level <= _verbosity:
         print(message)
 
+
+def fitter(p0, errfunc, args):
+
+    from lmfit import minimize
+    result = minimize(errfunc, p0, args=args)
+
+    if not result.success:
+        msg = " Optimal parameters not found: " + result.message
+        raise RuntimeError(msg)
+
+    for i, name in enumerate(result.var_names):
+        if result.params[name].value == result.init_vals[i]:
+            warn("Warning: fitter: parameter \"%s\" was not changed, it is probably redundant"%name, 2)
+
+    from scipy.stats import chi2
+    chi = chi2.cdf(result.redchi, result.nfree)
+    if chi > 0.5: pval = -(1-chi)*2
+    else: pval = chi*2
+    pval = chi
+    return result.params, pval, result
+
+def dict2Params(dic):
+    from lmfit import Parameters
+    p = Parameters()
+    for key, val in dic.items():
+        p.add(key, value=val)
+    return p
+
+
 class Rate:
     def __init__(self, fname, full_data=False, skip_iter=[]):
         import re
@@ -266,42 +295,6 @@ class Rate:
             ax.set_title("p="+str(self.fitparam))
             ax.legend()
             plt.show()
-
-    def fitter(self, p0, errfunc, args, bounds=None):
-        if bounds==None:
-            _errfunc = errfunc
-        else:
-            def _errfunc(p, *args):
-                penalty = [weight*(np.fmax(lo-pp, 0) + np.fmax(0, pp-hi))\
-                        for pp, (lo, hi, weight) in zip(p, bounds)]
-                residuals = errfunc(p, *args)
-                #print("residuals:", np.sum(penalty**2), np.sum(residuals**2))
-                return np.hstack((residuals, penalty))
-
-        from scipy.optimize import leastsq
-        p, cov_p, info, mesg, ier \
-            = leastsq(_errfunc, p0, args=args, full_output=1, factor=0.9, maxfev=2000)
-        
-        if ier not in [1, 2, 3, 4]:
-            msg = "ier"+str(ier) + " Optimal parameters not found: " + mesg
-            raise RuntimeError(msg)
-        if cov_p is None:
-            return p, 1./np.zeros_like(p), 0.
-            raise RuntimeError("Optimal parameters not found: Covariance is None: " + mesg)
-        if any(np.diag(cov_p) < 0):
-            raise RuntimeError("Optimal parameters not found: negative variance")
-        
-        chisq = np.dot(info["fvec"], info["fvec"])
-        dof = len(info["fvec"]) - len(p)
-        sigma = np.array([np.sqrt(cov_p[i,i])*np.sqrt(chisq/dof) for i in range(len(p))])
-
-        Q = chisq/dof
-        from scipy.stats import chi2
-        chi = chi2.cdf(Q, dof)
-        #if chi > 0.5: pval = (1-chi)*2
-        #else: pval = chi*2
-        pval = chi
-        return p, sigma, pval
 
     def _fit(self, fitfunc, p0, columns, mask=slice(None), bounds=None):
         self.fitfunc = fitfunc # store the fitfunc for later
@@ -622,6 +615,7 @@ class MultiRate:
 
         # if True, a normalization factor for each rate with respect to rates[0] is a free fitting param
         self.normalized = True
+        self.norms = [1]*len(self.rates)
 
         self.fitfunc = None
         self.fitparam = None
@@ -629,19 +623,17 @@ class MultiRate:
         self.fitmask = slice(None)
 
     def plot(self, ax=None, show=False, plot_fitfunc=True, symbols=["o", "s", "v", "^", "D", "h"],\
-            fitfmt="-", fitcolor=None, hide_uncertain=False):
+            fitfmt="-", fitcolor=None, hide_uncertain=False, plot_columns=None):
         if ax is None:
             import matplotlib.pyplot as plt
             ax = plt.gca()
 
-        lines = []
-        for i in range(self.rates[0].nions):
+        lines = {}
+        if plot_columns is None: plot_columns = range(self.rates[0].nions)
+        for i in plot_columns:
             l = None
             for j, rate in enumerate(self.rates):
-                if self.fitparam != None and self.normalized:
-                    norm = self.fitparam[0]/self.fitparam[j]
-                else:
-                    norm = 1.
+                norm = 1/self.norms[j]
 
                 I = rate.data_std[i] < rate.data_mean[i] if hide_uncertain else slice(None)
                 if l==None:
@@ -651,17 +643,14 @@ class MultiRate:
                 else:
                     l = ax.errorbar(rate.time[I], rate.data_mean[i][I]*norm, yerr=rate.data_std[i][I]*norm,
                         fmt = symbols[i], color=color, markeredgewidth=0)
-            lines.append(l)
+            lines[i] = l
 
         # plot sum
         for j, rate in enumerate(self.rates):
-            if self.fitparam != None and self.normalized:
-                norm = self.fitparam[0]/self.fitparam[j]
-            else:
-                norm = 1.
-            S = np.sum(rate.data_mean, axis=0)
+            # calculate the sum over the plotted data only
+            S = np.sum(rate.data_mean[plot_columns], axis=0)
             label = "sum" if j==0 else None
-            ax.plot(rate.time, S*norm, ".", c="0.5", label=label)
+            ax.plot(rate.time, S/self.norms[j], ".", c="0.5", label=label)
 
 
         if self.fitfunc != None:
@@ -670,134 +659,252 @@ class MultiRate:
             x = np.logspace(np.log10(mintime), np.log10(maxtime), 500)-self.fit_t0
             x = x[x>=0.]
 
-
-            p = list([self.fitparam[0]]) + list(self.fitparam[len(self.rates):]) if self.normalized else self.fitparam
-            fit = self.fitfunc(p, x)
-            if len(self.fitcolumns) > 1:
-                for i, column in enumerate(self.fitcolumns):
-                    if fitcolor == None: c = lines[column].get_children()[0].get_color()
-                    else: c = fitcolor
-                    ax.plot(x+self.fit_t0, fit[i], fitfmt, c=c)
-                ax.plot(x+self.fit_t0, np.sum(fit, axis=0), c="k")
-            else:
-                column = self.fitcolumns[0]
+            fit = self.fitfunc(self.fitparam, x)
+            for i, column in enumerate(self.fitcolumns):
+                if column not in plot_columns: continue
                 if fitcolor == None: c = lines[column].get_children()[0].get_color()
                 else: c = fitcolor
-                ax.plot(x+self.fit_t0, fit, fitfmt, c=c)
+                ax.plot(x+self.fit_t0, fit[i], fitfmt, c=c)
+            if len(self.fitcolumns) > 1:
+                ax.plot(x+self.fit_t0, np.sum(fit, axis=0), c="k")
 
         if show == True:
             ax.set_yscale("log")
             ax.legend()
             plt.show()
 
-    def _fit(self, fitfunc, p0, columns, mask=slice(None), bounds=None, t0=0.):
+        return ax
+
+
+    def _fit(self, fitfunc, p0, columns, mask=slice(None), t0=0., boundweight=1e3):
         self.fitfunc = fitfunc # store the fitfunc for later
         self.fitcolumns = columns
         self.fit_t0 = t0
         self.fitmask = mask
 
-        def errfunc( p, x, y, xerr):
+        if type(p0) is dict:
+            p0 = dict2Params(p0)
+        else:
+            p0 = p0.copy()
+
+        # use custom implementation of bounded parameters, which can
+        # estimate errors even if the parameter is "forced" outside the interval
+        # idea: detect if fitted parameter is close to boundary, then make it fixed...
+        bounds = {}
+        for key, p in p0.items():
+            if np.any(np.isfinite([p.min, p.max])):
+                bounds[key] = (p.min, p.max, boundweight)
+                p.set(min=-np.inf, max=np.inf)
+
+        def errfunc( p, x, y, xerr, norm=1):
             sigma_min = 0.01
-            retval = (fitfunc(p, x)-y[columns,:])/\
+            res = (fitfunc(p, x)*norm-y[columns,:])/\
                 (xerr[columns,:] + sigma_min)
-            return retval.ravel()
+            return res.ravel()
 
         def errfunc_multi(p, rates):
-            # p[0] is normalization factor (# of ions)
             err = []
             for i, rate in enumerate(rates):
-                pi = (list([p[i]])+list(p[len(self.rates):])) if self.normalized else p
-                err.append(errfunc(pi, rate.time[mask] - t0, rate.data_mean[:,mask], rate.data_std[:,mask]))
+                norm = p["n%d"%i].value if (i>0 and self.normalized) else 1
+                err.append(errfunc(p, rate.time[mask] - t0, rate.data_mean[:,mask], rate.data_std[:,mask], norm))
 
-            if bounds is not None:
-                penalty = [weight*(np.fmax(lo-pp, 0) + np.fmax(0, pp-hi))\
-                        for pp, (lo, hi, weight) in zip(p, bounds)]
-                err.append(np.array(penalty))
+            penalty = [weight*(np.fmax(lo-p[key], 0) + np.fmax(0, p[key]-hi))\
+                        for key, (lo, hi, weight) in bounds.items()]
+            err.append(penalty)
+
             #print("err = ", np.sum(np.hstack(err)**2))
             return np.hstack(err)
 
-        self.fitparam, sigma, pval = self.fitter(p0, errfunc_multi, (self.rates,))
-        return self.fitparam, sigma, pval
+        # If needed, the normalization factors are appended to the list of
+        # fitting parameters
+        if self.normalized:
+            for i in range(1,len(self.rates)): p0.add("n%d"%i, value=1)
+
+        self.fitparam, pval, result = fitter(p0, errfunc_multi, (self.rates,))
+
+        # extract the normalization factors
+        if self.normalized:
+            for i in range(1,len(self.rates)): self.norms[i] = self.fitparam["n%d"%i].value
+
+        return self.fitparam, pval, result
 
 
-    def fit_decay(self, p0=[.1], nions=60., columns=[0], mask=slice(None), bounds=None, t0=0.):
+    def fit_decay(self, p0, columns=[0], mask=slice(None), t0=0.):
 
-        fitfunc = lambda p, x: p[0]*np.exp(-x*p[1])
+        def fitfunc (p, x):
+            N0 = p["N0"].value
+            rate = p["rate"].value
 
-        p0 = ([nions]*len(self.rates) if self.normalized else [nions]) + list(p0)
-        return self._fit(fitfunc, p0, columns, mask, bounds, t0)
+            return (N0*np.exp(-x*rate), )
+
+        return self._fit(fitfunc, p0, columns, mask, t0)
 
 
-    def fit_change(self, p0=[10., 0.0], nions=10, columns=[0,1], mask=slice(None), bounds=None, t0=0., loss=0.):
-        # p = [r1, N2(0)]
-        fitfunc = lambda p, x: (
-                np.exp(-x*p[1])*p[0],
-                np.exp(-x*loss)*( p[2] + p[0]*p[1]/(loss-p[1])*(np.exp(-x*(p[1]-loss))-1))
-                )
-
-        p0 = ([nions]*len(self.rates) if self.normalized else [nions]) + list(p0)
-        return self._fit(fitfunc, p0, columns, mask, bounds, t0)
-
-    def fit_NHn_relaxation(self, p0=[10., 100., 100., 10., 10., 10., 10., .1, .1, .1, .1, .1, .1], nions=400,\
-            columns=[0,1,2,3,4,5], mask=slice(None), t0=0, discrimination=False, NH3loss=0.05, H3disc=1.):
-        from scipy.integrate import odeint
-
-        self.fitparamnames = [\
-                "NH+ rate", "NH2+ rate", "NH3+ exc rate", "NH4+ rate", "H3+ rate", "-H3+ rate", "NH3+ relax rate",\
-                "NH4+ from exc rate", "NH+(0)", "NH2+(0)", "NH3+(0)", "NH4+(0)", "H3+(0)"]
+    def fit_change(self, p0, columns=[0,1], mask=slice(None), bounds=None, t0=0., loss=0.):
 
         def fitfunc(p, x):
-            if discrimination:
-                if len(p)!=14+5: raise RuntimeError("fitfunc: wrong number of parameters")
-                disc = p[-5:]
-            else:
-                if len(p)!=14: raise RuntimeError("fitfunc: wrong number parameters")
-                disc = [1]*5
-            #print(" ".join("%7.2f" % ii for ii in p))
+            N0 = p["N0"].value
+            N1 = p["N1"].value
+            rate = p["rate"].value
+            return (
+                np.exp(-x*rate)*N0,
+                np.exp(-x*loss)*(N1 + N0*rate/(loss-rate)*(np.exp(-x*(rate-loss))-1))
+                )
+
+        return self._fit(fitfunc, p0, columns, mask, t0)
+
+
+    def fit_change_channel(self, p0, columns=[0,1], mask=slice(None), bounds=None, t0=0.):
+
+        def fitfunc(p, x):
+            N0 = p["N0"].value
+            N1 = p["N1"].value
+            rate = p["rate"].value
+            bratio = p["bratio"].value
+            return (
+                np.exp(-x*rate)*N0,
+                N0*bratio*(1-np.exp(-x*rate)) + N1
+                )
+
+        return self._fit(fitfunc, p0, columns, mask, t0)
+
+    def fit_NH(self, p0={
+        "N": 100.,          "NH": 10.,
+        "NH2": 1.,          "NH3": 1.,
+        "H3": 10.,          "N15":10.,
+        "rNH":1.,          "rNH2":10.,
+        "rH3":1,            "rNH3":10,
+        "rH3d":1},\
+            columns=[0,1,2,3,4], mask=slice(None), t0=0):
+
+        from scipy.integrate import odeint
+        specnames = ["N", "NH", "NH2", "NH3", "H3", "N15"]
+        ratenames = ["rNH", "rNH2", "rH3", "rNH3", "rH3d"]
+
+        p0 = dict2Params(p0)
+        for key in p0: p0[key].set(min=0)
+        def fitfunc(p, x):
+            rNH, rNH2, rH3, rNH3, rH3d = [p[name].value for name in ratenames]
+            N, NH, NH2, NH3, H3, N15 = range(6)
+            eqn = lambda y, x: [\
+                    # N+
+                    -rNH*y[N],\
+                    # NH+
+                    -(rNH2 + rH3)*y[NH] + rNH*y[N],\
+                    # NH2+
+                    rNH2*y[NH] - rNH3*y[NH2],\
+                    # NH3+
+                    rNH3*y[NH2],\
+                    # H3+
+                    rH3*y[NH] - rH3d*y[H3],\
+                    # 15N+
+                    -rNH*y[N15],
+                    ]
+            y0 = [p[name].value for name in specnames]
+            t = np.r_[0, x]
+            y = odeint(eqn, y0, t, mxstep=10000)
+            res = y[1:,:5]
+            res[:,1] += y[1:,N15] # add the relaxed and excite NH3+
+            return res.T
+
+        return self._fit(fitfunc, p0, columns, mask, t0)
+
+
+    def fit_NHn_long(self, p0={
+        "N": 100.,          "NH": 10.,
+        "NH2": 1.,          "NH3": 1.,
+        "NH4": .1,          "H3": 10.,
+        "rNH":1.,           "rNH2":10.,
+        "rH3":1,            "rNH3":10,
+        "rNH4":1,           "rH3d":1,
+        "rNH3rel":1,        "rNH4exc":10},\
+            columns=[0,1,2,3,4,5], mask=slice(None), t0=0, discrimination=False, NH3loss=0.05, H3disc=1.):
+        from scipy.integrate import odeint
+        if discrimination is True:
+            raise NotImplementedError("discrimination fit in fit_NHn_long not implemented")
+
+        p0 = dict2Params(p0)
+        for key in p0: p0[key].set(min=0)
+
+        def fitfunc(p, x):
             N, NH, NH2, NH3, NH4, H3, NH3e = range(7)
             eqn = lambda y, x: [\
                     # N+
-                    -p[1]*y[N],\
+                    -p["rNH"]*y[N],\
                     # NH+
-                    (p[1]*y[N] - p[2]*y[NH] - p[5]*y[NH]),\
+                    p["rNH"]*y[N] - p["rH3"]*y[NH] - p["rNH2"]*y[NH],\
                     # NH2+
-                    (p[2]*y[NH] - p[3]*y[NH2]),\
+                    p["rNH2"]*y[NH] - p["rNH3"]*y[NH2],\
                     # NH3+ relaxed
-                    (p[7]*y[NH3e] - p[4]*y[NH3] - NH3loss*y[NH3]),\
+                    p["rNH3rel"]*y[NH3e] - p["rNH4"]*y[NH3] - NH3loss*y[NH3],\
                     # NH4+
-                    (p[4]*y[NH3] + p[8]*y[NH3e]),\
+                    p["rNH4"]*y[NH3] + p["rNH4exc"]*y[NH3e],\
                     # H3+
-                    (p[5]*y[NH] - p[6]*y[H3]),\
+                    p["rH3"]*y[NH] - p["rH3d"]*y[H3],\
                     # excited NH3+
-                    (p[3]*y[NH2] - p[7]*y[NH3e] - p[8]*y[NH3e]),\
+                    p["rNH3"]*y[NH2] - p["rNH3rel"]*y[NH3e] - p["rNH4exc"]*y[NH3e],\
                     ]
-            y0 = [p[0], p[9], p[10], p[11], p[12], p[13], 0.]
+            y0 = [p["N"], p["NH"], p["NH2"], p["NH3"], p["NH4"], p["H3"], 0.]
             t = np.r_[0, x]
             y = odeint(eqn, y0, t, mxstep=10000)
             res = y[1:,[0,1,2,3,4,5]]
-            res[:,3] += y[1:,NH3e] # add the relaxed and excite NH3+
-            res *= np.array([1] + list(disc))
+            res[:,3] += y[1:,NH3e] # sum the relaxed and excited NH3+
+            #res *= np.array([1] + list(disc))
             res[:,H3] *= H3disc
             return res.T
 
+        return self._fit(fitfunc, p0, columns, mask, t0)
 
-        p0 = ([nions]*len(self.rates) if self.normalized else [nions]) + list(p0)
-        bounds = [(0, 1e9, 1e2)]*len(p0)
-        if discrimination:
-            for i in range(5):
-                bounds[len(p0)-1-i] = (1,1,1e2)
-            bounds[len(p0)-1] = (0,1,1e2)
 
-        return self._fit(fitfunc, p0, columns, mask, bounds, t0)
+    def fit_NHn_short(self, p0={
+        "N":400.,       "NH":.1,
+        "NH2":.1,       "NH3":.1,
+        "H3":.1,        "rNH":10.,
+        "rNH2":100.,    "rNH3":100.,
+        "rNH4":10.,     "rH3":10,
+        "rH3d":10.
+        },\
+            columns=[0,1,2,3,5], mask=slice(None), t0=0, H3disc = 1.):
+        from scipy.integrate import odeint
 
-    def fit_NHn_nodisc_short(self, p0=[10., 100., 100., 10., 10., 10., .1, .1, .1, .1], nions=400,\
+        #[400, 10., 100., 100., 10., 10., 10., .1, .1, .1, .1]
+        #pnames = ["NH+ rate", "NH2+ rate", "NH3+ exc rate", "NH4+ rate", "H3+ rate", "-H3+ rate",\
+        #                "NH+(0)", "NH2+(0)", "NH3+(0)", "H3+(0)"]
+        p0 = dict2Params(p0)
+        for key in p0: p0[key].set(min=0)
+
+        def fitfunc(p, x):
+            N, NH, NH2, NH3, H3, NH4 = range(6)
+            eqn = lambda y, x: [\
+                    # N+
+                    -p["rNH"]*y[N],\
+                    # NH+
+                    p["rNH"]*y[N] - p["rH3"]*y[NH] - p["rNH2"]*y[NH],\
+                    # NH2+
+                    p["rNH2"]*y[NH] - p["rNH3"]*y[NH2],\
+                    # NH3+ relaxed
+                    p["rNH3"]*y[NH2] - p["rNH4"]*y[NH3],\
+                    # H3+
+                    p["rH3"]*y[NH] - p["rH3d"]*y[H3],\
+                    ]
+            y0 = [p["N"], p["NH"], p["NH2"], p["NH3"], p["H3"]]
+            t = np.r_[0, x]
+            y = odeint(eqn, y0, t, mxstep=10000)
+            res = y[1:,[0,1,2,3,4]]
+            res[:,H3] *= H3disc
+            return res.T
+
+        return self._fit(fitfunc, p0, columns, mask, t0)
+
+    def fit_NHn_nodisc_short(self, p0=[400, 10., 100., 100., 10., 10., 10., .1, .1, .1, .1],\
             columns=[0,1,2,3,5], mask=slice(None), t0=0, H3disc = 1.):
         from scipy.integrate import odeint
 
         def fitfunc(p, x):
-            if len(p)>11: raise RuntimeError("fitfunc: too many parameters")
+
+            if len(p)>11: raise RuntimeError("fitfunc: too many parameters" + str(p))
             #print(", ".join("%7.2f" % ii for ii in p))
-            N, NH, NH2, NH3, NH4, H3 = range(6)
+            N, NH, NH2, NH3, H3, NH4 = range(6)
             eqn = lambda y, x: [\
                     # N+
                     -p[1]*y[N],\
@@ -818,11 +925,9 @@ class MultiRate:
             return res.T
 
 
-        p0 = ([nions]*len(self.rates) if self.normalized else [nions]) + list(p0)
         bounds = [(0, 1e9, 1e3)]*len(p0)
 
         return self._fit(fitfunc, p0, columns, mask, bounds, t0)
-
 
     def fitOH(self, p0=[10., 1, 0.01], nions=100., OH_loss=False, OH_injection=False):
     #def fitOH(self, p0=[260, 1., 1., 0.01], full_output=False):
