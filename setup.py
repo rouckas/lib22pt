@@ -8,4 +8,6 @@ setup(name='lib22pt',
       author_email='stepan@roucka.eu',
       license='MIT',
       packages=['lib22pt'],
+      setup_requires=['pytest-runner'],
+      tests_require=['pytest'],
       zip_safe=False)

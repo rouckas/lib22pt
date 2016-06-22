@@ -60,3 +60,7 @@ Local installation:
 To uninstall:
 
     pip3 uninstall lib22pt
+
+Run tests:
+
+    python3 setup.py test
