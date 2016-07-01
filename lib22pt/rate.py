@@ -622,15 +622,19 @@ class MultiRate:
         self.fitcolumns = None
         self.fitmask = slice(None)
 
-    def plot(self, ax=None, show=False, plot_fitfunc=True, symbols=["o", "s", "v", "^", "D", "h"],\
-            fitfmt="-", fitcolor=None, hide_uncertain=False, plot_columns=None):
+    def plot(self, ax=None, show=False, plot_fitfunc=True, symbols=["o", "s", "v", "^", "D", "h"], colors=["r", "g", "b", "m", "k", "orange"],\
+            opensymbols=False, fitfmt="-", fitcolor=None, hide_uncertain=False, plot_columns=None):
+        import matplotlib.pyplot as plt
         if ax is None:
-            import matplotlib.pyplot as plt
             ax = plt.gca()
 
         lines = {}
         if plot_columns is None: plot_columns = range(self.rates[0].nions)
         for i in plot_columns:
+            if opensymbols:
+                kwargs = {"markeredgewidth":1, "markerfacecolor":"w", "markeredgecolor": colors[i], "color":colors[i]}
+            else:
+                kwargs = {"markeredgewidth":0, "color":colors[i]}
             l = None
             for j, rate in enumerate(self.rates):
                 norm = 1/self.norms[j]
@@ -638,7 +642,7 @@ class MultiRate:
                 I = rate.data_std[i] < rate.data_mean[i] if hide_uncertain else slice(None)
                 if l==None:
                     l = ax.errorbar(rate.time[I], rate.data_mean[i][I]*norm, yerr=rate.data_std[i][I]*norm, label=rate.ionname[i],
-                        fmt = symbols[i], markeredgewidth=0)
+                        fmt = symbols[i], **kwargs)
                     color = l.get_children()[0].get_color()
                 else:
                     l = ax.errorbar(rate.time[I], rate.data_mean[i][I]*norm, yerr=rate.data_std[i][I]*norm,
