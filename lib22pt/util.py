@@ -1,3 +1,6 @@
+import numpy as np
+
+
 def concentration(temp, Paml22PT, f_22PT, PamlSIS=0., f_SIS=0., amltemp=300):
     """Calculate gas number density in the trap [cm^-3] from outside pressure in Pa
     
@@ -19,9 +22,8 @@ def concentration(temp, Paml22PT, f_22PT, PamlSIS=0., f_SIS=0., amltemp=300):
     """
 
     from scipy.constants import k as k_B
-    from numpy import sqrt
 
-    return (Paml22PT*f_22PT + PamlSIS*f_SIS)/k_B/sqrt(amltemp*temp)/10000
+    return (Paml22PT*f_22PT + PamlSIS*f_SIS)/k_B/np.sqrt(amltemp*temp)/10000
 
 
 
@@ -43,7 +45,6 @@ def langevin(alpha, m1, m2, aunit="A3"):
 
     # load physical constants
     from scipy import constants as sc
-    import numpy as np
     amu = sc.physical_constants["atomic mass constant"][0]
 
     # calculate reduced mass in SI units
