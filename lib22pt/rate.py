@@ -370,6 +370,27 @@ class MultiRate:
         return ax
 
 
+    def save_data(self, filename):
+        to_save = []
+        for j, rate in enumerate(self.rates):
+            norm = 1/self.norms[j]
+            to_save.append(np.hstack((rate.time[:,np.newaxis], rate.data_mean.T, rate.data_std.T)))
+        to_save = np.vstack(to_save)
+        np.savetxt(filename, to_save)
+
+
+    def save_fit(self, filename, time = None):
+        if time is None:
+            mintime = np.min([np.min(r.time[self.fitmask]) for r in self.rates])
+            maxtime = np.max([np.max(r.time[self.fitmask]) for r in self.rates])
+            time = np.logspace(np.log10(mintime), np.log10(maxtime), 500)-self.fit_t0
+            time = time[time>=0.]
+
+        fit = self.fitfunc(self.fitparam, time)
+        to_save = np.vstack((time, np.vstack(fit))).T
+        np.savetxt(filename, to_save)
+
+
     def _errfunc(self, p, bounds={}):
 
         def errfunc_single( p, x, y, xerr, norm=1):
