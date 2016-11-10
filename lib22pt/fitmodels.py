@@ -52,6 +52,21 @@ class ChangeChannel(BaseModel):
             )   
 
 
+class ChangeChannelBG(BaseModel):
+    params = P({"N0": 1000, "N1": 100, "r": 10, "bratio":.5, "bg": 10})
+
+    @staticmethod
+    def func(p, x):
+        N0 = p["N0"].value
+        N1 = p["N1"].value
+        r = p["r"].value
+        bratio = p["bratio"].value
+        bg = p["bg"].value
+        return (
+            np.exp(-x*r)*N0 + bg,
+            N0*bratio*(1-np.exp(-x*r)) + N1
+            )
+
 
 class Change2Channel(BaseModel):
     params = P({

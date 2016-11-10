@@ -471,6 +471,12 @@ class MultiRate:
         return self.fit_model(ChangeChannel().set_params(p0), columns, mask, t0)
 
 
+    def fit_change_channel_bg(self, p0 = P({"N0": 1000, "N1": 100, "r": 10, "bratio":.5, "bg": 1.}),\
+            columns=[0,1], mask=slice(None), t0=0.):
+        from .fitmodels import ChangeChannelBG
+        return self.fit_model(ChangeChannelBG().set_params(p0), columns, mask, t0)
+
+
     def fit_change_2channel(self, p0 = P({
         "N0" : 1000.,      "N1": 100.,
         "N2" : 1.,         "r1": 1.,
