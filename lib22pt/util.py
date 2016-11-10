@@ -1,4 +1,5 @@
 import numpy as np
+import os
 
 
 def concentration(temp, Paml22PT, f_22PT, PamlSIS=0., f_SIS=0., amltemp=300):
@@ -114,3 +115,15 @@ def stitch(avg1, avg2):
     pval = chi
     return p, sigma, pval
 
+
+
+def print_banner(text, ch='#', length=78):
+    spaced_text = ' %s ' % text
+    banner = spaced_text.center(length, ch)
+    print("\n" + ch*length + "\n" + banner + "\n" + ch*length + "\n")
+
+
+
+def ensure_dir(d):
+    if not os.path.exists(d):
+        os.makedirs(d)
