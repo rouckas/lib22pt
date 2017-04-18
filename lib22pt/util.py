@@ -83,6 +83,42 @@ def decimate(data, bins):
     return averages
 
 
+def polysmooth(points, xdata, ydata, wlen, deg, leastdeg=None, deriv=0, logwindow=False,\
+        kernel="step"):
+    points = np.atleast_1d(points)
+    res = np.zeros_like(points)
+    if leastdeg is None: leastdeg = deriv
+    elif min(leastdeg, deg) < deriv:
+        raise RuntimeError("polysmooth: poly degree must be >= deriv")
+    for i, point in enumerate(points):
+        if kernel == "step":
+            if logwindow:
+                wmin, wmax = point/wlen, point*wlen
+            else:
+                wmin, wmax = point-wlen, point+wlen
+            I = (xdata>wmin) & (xdata<wmax)
+            nI = np.count_nonzero(I)
+
+            degnow = min([nI-1, deg])
+            if degnow < leastdeg:
+                res[i] = np.nan
+            else:
+                p = np.polyfit(xdata[I], ydata[I], degnow)
+                res[i] = np.polyder(np.poly1d(p), m=deriv)(point)
+        elif kernel=="gauss":
+            gaussian = lambda x, mu, sigma:\
+                np.exp(-(x-mu)**2/(2*sigma**2))/(sigma*np.sqrt(2*np.pi))
+
+            if logwindow:
+                weights = gaussian(np.log10(xdata), np.log10(point), np.log10(wlen))
+            else:
+                weights = gaussian(xdata, point, wlen)
+
+            p = np.polyfit(xdata, ydata, deg, w=weights)
+            res[i] = np.polyder(np.poly1d(p), m=deriv)(point)
+    return res
+
+
 
 def stitch(avg1, avg2):
     def distance(p, data_avg, averages):
