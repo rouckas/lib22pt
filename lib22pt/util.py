@@ -83,8 +83,9 @@ def decimate(data, bins):
     return averages
 
 
+
 def polysmooth(points, xdata, ydata, wlen, deg, leastdeg=None, deriv=0, logwindow=False,\
-        kernel="step"):
+        kernel="step", nan=np.nan):
     points = np.atleast_1d(points)
     res = np.zeros_like(points)
     if leastdeg is None: leastdeg = deriv
@@ -101,10 +102,11 @@ def polysmooth(points, xdata, ydata, wlen, deg, leastdeg=None, deriv=0, logwindo
 
             degnow = min([nI-1, deg])
             if degnow < leastdeg:
-                res[i] = np.nan
-            else:
-                p = np.polyfit(xdata[I], ydata[I], degnow)
-                res[i] = np.polyder(np.poly1d(p), m=deriv)(point)
+                res[i] = nan
+                continue
+            x, y = xdata[I], ydata[I]
+            weights = None
+
         elif kernel=="gauss":
             gaussian = lambda x, mu, sigma:\
                 np.exp(-(x-mu)**2/(2*sigma**2))/(sigma*np.sqrt(2*np.pi))
@@ -114,7 +116,13 @@ def polysmooth(points, xdata, ydata, wlen, deg, leastdeg=None, deriv=0, logwindo
             else:
                 weights = gaussian(xdata, point, wlen)
 
-            p = np.polyfit(xdata, ydata, deg, w=weights)
+            x, y = xdata, ydata
+
+        try:
+            p = np.polyfit(x, y, deg, w=weights)
+        except np.lib.polynomial.RankWarning:
+            res[i] = nan
+        else:
             res[i] = np.polyder(np.poly1d(p), m=deriv)(point)
     return res
 
