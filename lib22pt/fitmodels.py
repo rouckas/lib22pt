@@ -36,9 +36,9 @@ class Change(BaseModel):
             )
 
 
-
 class ChangeChannel(BaseModel):
-    params = P({"N0": 1000, "N1": 100, "r": 10, "bratio":.5})
+    params = P({"N0": 1000, "N1": 100, "r": 10, "bratio":.5, "loss":0})
+    params["loss"].set(vary=False)
 
     @staticmethod
     def func(p, x):
@@ -46,9 +46,10 @@ class ChangeChannel(BaseModel):
         N1 = p["N1"].value
         r = p["r"].value
         bratio = p["bratio"].value
+        loss = p["loss"].value
         return (
             np.exp(-x*r)*N0,
-            N0*bratio*(1-np.exp(-x*r)) + N1
+            np.exp(-x*loss)*(N1 + bratio*N0*r/(loss-r)*(np.exp(-x*(r-loss))-1))
             )   
 
 
