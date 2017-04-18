@@ -55,9 +55,10 @@ P = dict2Params
 class Rate:
     def __init__(self, fname, full_data=False, skip_iter=[]):
         import re
+        import datetime as dt
         fr = open(fname)
 
-        state = 0
+        state = -1
         npoints = 0
         nions = 0
 
@@ -70,11 +71,22 @@ class Rate:
         integration = 0
 
         poisson_error = True
+        # -1 header
         # 0 init
         # 1 read time
         # 2 read data
 
-        for line in fr:
+        for lineno, line in enumerate(fr):
+            # read header
+            if state == -1:
+                if lineno == 2:
+                    T1 = line[:22].split()
+                    T2 = line[22:].split()
+                    self.starttime = dt.datetime.strptime(" ".join(T1), "%Y-%m-%d %H:%M:%S.%f")
+                    self.stoptime = dt.datetime.strptime(" ".join(T2), "%Y-%m-%d %H:%M:%S.%f")
+                if lineno == 3:
+                    state = 0
+
             toks = line.split()
             if len(toks) == 0:
                 continue
