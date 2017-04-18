@@ -123,8 +123,8 @@ class NH(BaseModel):
         specnames = ["N", "NH", "NH2", "NH3", "H3", "N15"]
         ratenames = ["rNH", "rNH2", "rH3", "rNH3", "rH3d"]
 
-        pval = p.valuesdict()
-        rNH, rNH2, rH3, rNH3, rH3d = [pval[name] for name in ratenames]
+        p = p.valuesdict()
+        rNH, rNH2, rH3, rNH3, rH3d = [p[name] for name in ratenames]
         N, NH, NH2, NH3, H3, N15 = range(6)
         eqn = lambda y, x: [\
                 # N+
@@ -140,12 +140,12 @@ class NH(BaseModel):
                 # 15N+
                 -rNH*y[N15],
                 ]
-        y0 = [pval[name] for name in specnames]
+        y0 = [p[name] for name in specnames]
         t = np.r_[0, x]
         y = odeint(eqn, y0, t, mxstep=10000)
-        y[:,H3] *= pval["H3disc"]
-        y[:,NH2] *= pval["NH2disc"]
-        y[:,NH3] *= pval["NH3disc"]
+        y[:,H3] *= p["H3disc"]
+        y[:,NH2] *= p["NH2disc"]
+        y[:,NH3] *= p["NH3disc"]
         res = y[1:,:5]
         res[:,1] += y[1:,N15] # add the relaxed and excite NH3+
         return res.T
@@ -163,6 +163,7 @@ class NHn_long(BaseModel):
     @staticmethod
     def func(p, x):
         N, NH, NH2, NH3, NH4, H3, NH3e = range(7)
+        p = p.valuesdict()
         eqn = lambda y, x: [\
                 # N+
                 -p["rNH"]*y[N],\
@@ -185,7 +186,7 @@ class NHn_long(BaseModel):
         res = y[1:,[0,1,2,3,4,5]]
         res[:,3] += y[1:,NH3e] # sum the relaxed and excited NH3+
         #res *= np.array([1] + list(disc))
-        res[:,H3] *= p["H3disc"].value
+        res[:,H3] *= p["H3disc"]
         return res.T
 
 
@@ -202,6 +203,7 @@ class NHn_short(BaseModel):
     @staticmethod
     def func(p, x):
         N, NH, NH2, NH3, H3, NH4 = range(6)
+        p = p.valuesdict()
         eqn = lambda y, x: [\
                 # N+
                 -p["rNH"]*y[N],\

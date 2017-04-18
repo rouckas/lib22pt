@@ -489,7 +489,7 @@ class MultiRate:
 
 
     def fit_change_channel(self, p0 = P({"N0": 1000, "N1": 100, "r": 10, "bratio":.5}),\
-            columns=[0,1], mask=slice(None), bounds=None, t0=0.):
+            columns=[0,1], mask=slice(None), t0=0.):
         from .fitmodels import ChangeChannel
         return self.fit_model(ChangeChannel().set_params(p0), columns, mask, t0)
 
@@ -563,5 +563,5 @@ class MultiRate:
         from .fitmodels import NHn_short
         p0.add("H3disc", value=H3disc, vary=False)
         for key in p0: p0[key].set(min=0)
-        return self.fit_model(NHn_long().set_params(p0), columns, mask, t0)
+        return self.fit_model(NHn_short().set_params(p0), columns, mask, t0)
 
