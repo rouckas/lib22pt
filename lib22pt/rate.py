@@ -415,6 +415,29 @@ class MultiRate:
         return np.hstack(err)
 
 
+    def _errfunc_species(self, p, species, bounds={}):
+
+        def errfunc_single( p, x, y, xerr, norm=1):
+            sigma_min = 0.01
+            res = (self.fitfunc(p, x)[species]*norm-y[self.fitcolumns,:][species])/\
+                (xerr[self.fitcolumns,:][species] + sigma_min)
+            return res.ravel()
+
+        # sum errors over all files (normalize if requested)
+        err = []
+        mask = self.fitmask
+        for i, rate in enumerate(self.rates):
+            norm = p["n%d"%i].value if (i>0 and self.normalized) else 1
+            err.append(errfunc_single(p, rate.time[mask] - self.fit_t0, rate.data_mean[:,mask], rate.data_std[:,mask], norm))
+
+        # add penalty for bounded fitting
+        penalty = [weight*(np.fmax(lo-p[key], 0) + np.fmax(0, p[key]-hi))\
+                    for key, (lo, hi, weight) in bounds.items()]
+        err.append(penalty)
+
+        #print("err = ", np.sum(np.hstack(err)**2))
+        return np.hstack(err)
+
 
     def fit_model(self, model, columns, mask=slice(None), t0=0., boundweight=1e3):
         self.fitfunc = model.func # store the fitfunc for later
