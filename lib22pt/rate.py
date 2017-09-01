@@ -403,6 +403,39 @@ class MultiRate:
         np.savetxt(filename, to_save)
 
 
+    def save_data_fit_excel(self, filename, time = None):
+        import pandas as pd
+        for j, rate in enumerate(self.rates):
+            if j>0:
+                TODO()
+                norm = 1/self.norms[j]
+
+            df = pd.DataFrame(rate.time, columns=["tt"])
+            for k, name in enumerate(rate.ionname):
+                df[name] = rate.data_mean[k]
+                df[name+"_err"] = rate.data_std[k]
+
+        writer = pd.ExcelWriter(filename)
+        df.to_excel(writer, "data")
+
+        if self.fitfunc != None:
+            if time is None:
+                mintime = np.min([np.min(r.time[self.fitmask]) for r in self.rates])
+                maxtime = np.max([np.max(r.time[self.fitmask]) for r in self.rates])
+                time = np.logspace(np.log10(mintime), np.log10(maxtime), 500)-self.fit_t0
+                time = time[time>=0.]
+
+            fit = self.fitfunc(self.fitparam, time)
+
+            df_fit = pd.DataFrame(time, columns = ["tt"])
+            for i, column in enumerate(self.fitcolumns):
+                name = self.rates[0].ionname[column]
+                df_fit[name] = fit[i]
+
+            df_fit.to_excel(writer, "fit")
+        writer.save()
+
+
     def _errfunc(self, p, bounds={}):
 
         def errfunc_single( p, x, y, xerr, norm=1):
