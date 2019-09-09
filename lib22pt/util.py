@@ -67,10 +67,10 @@ def langevin(alpha, m1, m2, aunit="A3"):
 
 
 
-def decimate(data, bins):
+def decimate(data, bins, add_errs=False):
     """ the data columns are [data_x, data_y, y_err] """
 
-    from .avg import w_avg_std
+    from .avg import w_avg_std, wstd_avg_std
     averages = np.zeros((len(bins)-1, 5))*np.nan
     for i in range(len(bins)-1):
         indices = (data[:,0] >= bins[i] ) & (data[:,0] < bins[i+1])
@@ -80,6 +80,9 @@ def decimate(data, bins):
 
         averages[i,0], averages[i,2], dum = w_avg_std(subset[:,0], 1/subset[:,2]**2)
         averages[i,1], averages[i,3], dum = w_avg_std(subset[:,1], 1/subset[:,2]**2)
+        if add_errs:
+            # for example to account for stat spread of data + fit quality
+            averages[i,3] += wstd_avg_std(subset[:,1], subset[:,2])[1]
     return averages
 
 
