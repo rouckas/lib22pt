@@ -415,15 +415,15 @@ class MultiRate:
         if time is None:
             mintime = np.min([np.min(r.time[self.fitmask]) for r in self.rates])
             maxtime = np.max([np.max(r.time[self.fitmask]) for r in self.rates])
-            time = np.logspace(np.log10(mintime), np.log10(maxtime), 500)-self.fit_t0
-            time = time[time>=0.]
+            time = np.logspace(np.log10(mintime), np.log10(maxtime), 500)
+        time -= self.fit_t0
+        time = time[time>=0.]
 
         fit = self.fitfunc(self.fitparam, time)
-        to_save = np.vstack((time, np.vstack(fit))).T
+        to_save = np.vstack((time+self.fit_t0, np.vstack(fit))).T
         np.savetxt(filename, to_save)
 
-
-    def save_data_fit_excel(self, filename, time = None):
+    def save_data_fit_excel(self, filename, time=None, metadata={}):
         import pandas as pd
         for j, rate in enumerate(self.rates):
             if j>0:
@@ -442,10 +442,10 @@ class MultiRate:
             if time is None:
                 mintime = np.min([np.min(r.time[self.fitmask]) for r in self.rates])
                 maxtime = np.max([np.max(r.time[self.fitmask]) for r in self.rates])
-                time = np.logspace(np.log10(mintime), np.log10(maxtime), 500)-self.fit_t0
-                time = time[time>=0.]
+                time = np.logspace(np.log10(mintime), np.log10(maxtime), 500)
 
-            fit = self.fitfunc(self.fitparam, time)
+            time = time[time>=self.fit_t0]
+            fit = self.fitfunc(self.fitparam, time-self.fit_t0)
 
             df_fit = pd.DataFrame(time, columns = ["tt"])
             for i, column in enumerate(self.fitcolumns):
@@ -453,8 +453,11 @@ class MultiRate:
                 df_fit[name] = fit[i]
 
             df_fit.to_excel(writer, "fit")
-        writer.save()
 
+        for key in metadata.keys():
+            metadata[key].to_excel(writer, key)
+
+        writer.save()
 
     def _errfunc(self, p, bounds={}):
 
