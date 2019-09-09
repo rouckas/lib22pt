@@ -24,7 +24,7 @@ def wstd_avg_std(x, std, axis=0):
 
     return xm, N.sqrt(var)
 
-def w_avg_std(x, w):
+def w_avg_std(x, w, dropnan=False):
     """
     Returns weighted mean and sqrt(weighted unbiased sample variance),
     which is unbiased standard deviation
@@ -32,6 +32,13 @@ def w_avg_std(x, w):
     w - weights (ndarray)
     """
 
+    if dropnan:
+        I = (N.isfinite(x) & N.isfinite(w))
+        x = x[I]
+        w = w[I]
+
+    if len(x) < 1:
+        return N.nan, N.nan, N.nan
     if len(x) < 2:
         return x[0], N.nan, N.nan
 
