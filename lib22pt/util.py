@@ -124,19 +124,22 @@ def polysmooth(points, xdata, ydata, wlen, deg, leastdeg=None, deriv=0, logwindo
         try:
             p = np.polyfit(x, y, deg, w=weights)
         except np.lib.polynomial.RankWarning:
-            res[i] = nan
+            res[i] = np.nan
         else:
             res[i] = np.polyder(np.poly1d(p), m=deriv)(point)
     return res
 
 
 
-def stitch(avg1, avg2):
+def stitch(avg1, avg2, debug=False):
+    """Find multiplier for avg1 to match avg2 in the overlapping region.
+    Both arrays must have the same x-axis."""
     def distance(p, data_avg, averages):
         overlap = (avg1[:,4]>0) & (avg2[:,4]>0)
         dist = avg1[overlap,1]*p[0] - avg2[overlap,1]
         var = np.sqrt((avg1[overlap,3]*p[0])**2 + avg2[overlap,3]**2)
-        return dist/var
+        if debug: print(p, overlap.astype(int), dist)
+        return (dist/var)[~np.isnan(dist/var)]
 
     p0 = [1.0]
     from scipy.optimize import leastsq
