@@ -534,8 +534,10 @@ class MultiRate:
 
 
     def fit_change_channel(self, p0 = P({"N0": 1000, "N1": 100, "r": 10, "bratio":.5}),\
-            columns=[0,1], mask=slice(None), t0=0.):
+            columns=[0,1], mask=slice(None), t0=0., loss=0.):
         from .fitmodels import ChangeChannel
+        p0 = dict2Params(p0)
+        p0.add("loss", value=loss, vary=False)
         return self.fit_model(ChangeChannel().set_params(p0), columns, mask, t0)
 
 
@@ -551,7 +553,25 @@ class MultiRate:
         "r2" : 10.}),\
             columns=[0,1,2], mask=slice(None), t0=0):
         from .fitmodels import Change2Channel
+        p0 = dict2Params(p0)
+        p0.add("r", expr="r1+r2")
         return self.fit_model(Change2Channel().set_params(p0), columns, mask, t0)
+
+    def fit_change_3channel(self, p0 = P({
+        "N0" : 1000.,      "N1": 100.,
+        "N2" : 1.,         "r1": 1.,
+        "r2" : 10.,        "r" : 11.}),\
+            columns=[0,1,2], mask=slice(None), t0=0):
+        from .fitmodels import Change2Channel
+        return self.fit_model(Change2Channel().set_params(p0), columns, mask, t0)
+
+    def fit_change_Nchannel(self, p0 = P({
+        "N0" : 1000.,      "N1": 100.,
+        "N2" : 1.,         "r1": 1.,
+        "r2" : 10.,        "r" : 11.}),\
+            columns=[0,1,2], mask=slice(None), t0=0, N=3):
+        from .fitmodels import ChangeNChannel
+        return self.fit_model(ChangeNChannel(N).set_params(p0), columns, mask, t0)
 
 
     def fit_equilib(self, p0 = P({
@@ -560,6 +580,83 @@ class MultiRate:
             columns=[0,1,2], mask=slice(None), t0=0):
         from .fitmodels import Equilib
         return self.fit_model(Equilib().set_params(p0), columns, mask, t0)
+
+    def fit_CPlusPlus(self, p0 =  P({
+        "Cpp": 100.,       "rC":1.,
+        "C": 10.,          "rX":1.,
+        "X": 1.,           "rH3":1.,
+        "H3": 1.,          "rH5": 1.
+        }),\
+            columns=[0,1,2], mask=slice(None), t0=0):
+        from .fitmodels import CPlusPlus
+        return self.fit_model(CPlusPlus().set_params(p0), columns, mask, t0)
+
+    def fit_Ar(self, p0 =  P({
+        "Ar": 100.,         "r1":1.,
+        "ArH": 10.,         "r2":1.,
+        "H2": 1.,           "r3":1.,
+        "H3": 1.,           "r4":1.,}),\
+            columns=[0,1,2,3,4], mask=slice(None), t0=0,  ArHdisc=1., H2disc=1., H3disc=1., fitdisc=False):
+        from .fitmodels import Ar
+        p0.add("ArHdisc", value=ArHdisc, vary=False)
+        p0.add("H2disc", value=H2disc, vary=False)
+        p0.add("H3disc", value=H3disc, vary=fitdisc)
+        return self.fit_model(Ar().set_params(p0), columns, mask, t0)
+
+    def fit_Ar_simple(self, p0 =  P({
+        "Ar": 100.,         "r1":1.,
+        "ArH": 10.,         "r2":1.,
+        "H2": 1.,           "r3":1.,
+                           "r4":1.,}),\
+            columns=[0,1,2,3], mask=slice(None), t0=0,  ArHdisc=1., H2disc=1., fitdisc=False):
+        from .fitmodels import Ar_simple
+        p0.add("ArHdisc", value=ArHdisc, vary=False)
+        p0.add("H2disc", value=H2disc, vary=fitdisc)
+        return self.fit_model(Ar_simple().set_params(p0), columns, mask, t0)
+
+    def fit_Oplus(self, p0=P({
+        "O": 100.,          "OH": 10.,
+        "OH2": 1.,          "OH3": 1.,
+        "H": 10.,
+        "rOH":1.,           "rOH2":10.,
+        "rH":1,             "rOH3":10,
+        }),
+            columns=[0,1,2,3], mask=slice(None), t0=0, Hdisc=1., OHdisc=1., OH2disc=1., OH3disc=1., Hloss=0., fitdisc=False, fitHloss=False):
+        from .fitmodels import Oplus
+        p0.add("Hdisc", value=Hdisc, vary=False)
+        p0.add("OHdisc", value=OHdisc, vary=fitdisc)
+        p0.add("OH2disc", value=OH2disc, vary=fitdisc)
+        p0.add("OH3disc", value=OH3disc, vary=fitdisc)
+        p0.add("rHd", value=Hloss, vary=fitHloss)
+        for key in p0: p0[key].set(min=0)
+        return self.fit_model(Oplus().set_params(p0), columns, mask, t0)
+
+    def fit_OminusHD(self, p0=P({
+        "O": 100.,   "OH": 10.,
+        "OD": 1.,    "r5":.1,
+        "r1":1.,     "r4":10.,
+        "r2":1,      "r3":1}),
+            columns=[0,1,2], mask=slice(None), t0=0):
+        from .fitmodels import OminusHD
+        for key in p0: p0[key].set(min=0)
+        return self.fit_model(OminusHD().set_params(p0), columns, mask, t0)
+
+
+    def fit_OHplus(self, p0=P({
+        "O": 100.,
+        "OH": 10.,
+        "OH2": 1.,          "OH3": 1.,
+        "rOH":1.,          "rOH2":10.,
+        "rOH3":10,
+        }),
+            columns=[0,1,2], mask=slice(None), t0=0, OH2disc=1., OH3disc=1., loss=0., fitdisc=False, fitNH3=False, rNH4=0.):
+        from .fitmodels import OHplus
+        p0.add("OH2disc", value=OH2disc, vary=fitdisc)
+        p0.add("OH3disc", value=OH3disc, vary=fitdisc)
+        p0.add("NH3", value=0, vary=fitNH3)
+        p0.add("rNH4", value=rNH4, vary=False)
+        for key in p0: p0[key].set(min=0)
+        return self.fit_model(OHplus().set_params(p0), columns, mask, t0)
 
 
     def fit_NH(self, p0=P({
