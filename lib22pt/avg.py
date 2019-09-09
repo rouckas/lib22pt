@@ -13,6 +13,8 @@ def wstd_avg_std(x, std, axis=0):
         return N.rollaxis(x, axis)[0], N.rollaxis(std, axis)[0]
 
 
+    if len(x) < 1:
+        return N.nan, N.nan, N.nan
     if len(x) < 2:
         return x[0], std[0]
 
@@ -47,8 +49,10 @@ def w_avg_std(x, w, dropnan=False):
 
     xm = N.dot(w,x)/sum_w
 
-    var = sum_w/(sum_w**2 - sum_w2) * N.sum(w * (x - xm)**2)
-    var_avg = var*sum_w2/sum_w**2
+    # https://en.wikipedia.org/wiki/Weighted_arithmetic_mean#Reliability_weights
+    var = sum_w/(sum_w**2 - sum_w2) * N.sum(w * (x - xm)**2) # unbiased sample variance
+    var_avg = var*sum_w2/sum_w**2 # what is this?
+    var_avg = 1/sum_w   # variance of the mean calculated from assumed input sample variances
 
     return xm, N.sqrt(var), N.sqrt(var_avg)
 
