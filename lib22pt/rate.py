@@ -321,8 +321,28 @@ class MultiRate:
 
         self.fitfunc = None
         self.fitparam = None
+        self.fitresult = None
         self.fitcolumns = None
         self.fitmask = slice(None)
+
+    def plot_to_file(self, fname, comment=None, *args, **kwargs):
+        import matplotlib.pyplot as plt
+        from lmfit import fit_report
+
+        f = plt.figure(figsize=(6,8.5))
+        ax = f.add_axes([.15, .5, .8, .45])
+        self.plot(ax=ax, show=False, *args, **kwargs)
+        ax.set_yscale("log")
+        ax.legend(loc="lower right", fontsize=5)
+        ax.set_title(comment, size=8)
+
+        if self.fitresult is not None:
+            f.text(0.1, 0.45, fit_report(self.fitresult, min_correl=0.5), size=6, va="top", family='monospace')
+        if ax.get_ylim()[0] < 1e-4: ax.set_ylim(bottom=1e-4)
+        ax.set_xlabel(r"$t (\rm s)$")
+        ax.set_ylabel(r"$N_{\rm i}$")
+        f.savefig(fname, dpi=200)
+        plt.close(f)
 
     def plot(self, ax=None, show=False, plot_fitfunc=True, symbols=["o", "s", "v", "^", "D", "h"], colors=["r", "g", "b", "m", "k", "orange"],\
             opensymbols=False, fitfmt="-", fitcolor=None, hide_uncertain=False, plot_columns=None):
@@ -512,13 +532,13 @@ class MultiRate:
             for i in range(1,len(self.rates)): p0.add("n%d"%i, value=1)
 
         # DO THE FITTING
-        self.fitparam, pval, result = fitter(p0, self._errfunc, (bounds,))
+        self.fitparam, pval, self.fitresult = fitter(p0, self._errfunc, (bounds,))
 
         # extract the normalization factors
         if self.normalized:
             for i in range(1,len(self.rates)): self.norms[i] = self.fitparam["n%d"%i].value
 
-        return self.fitparam, pval, result
+        return self.fitparam, pval, self.fitresult
 
 
     def fit_decay(self, p0={"N0":100, "r":10}, columns=[0], mask=slice(None), t0=0.):
