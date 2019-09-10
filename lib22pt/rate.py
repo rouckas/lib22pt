@@ -325,14 +325,15 @@ class MultiRate:
         self.fitcolumns = None
         self.fitmask = slice(None)
 
-    def plot_to_file(self, fname, comment=None, *args, **kwargs):
+    def plot_to_file(self, fname, comment=None, figsize=(6,8.5), logx=False, *args, **kwargs):
         import matplotlib.pyplot as plt
         from lmfit import fit_report
 
-        f = plt.figure(figsize=(6,8.5))
+        f = plt.figure(figsize=figsize)
         ax = f.add_axes([.15, .5, .8, .45])
         self.plot(ax=ax, show=False, *args, **kwargs)
         ax.set_yscale("log")
+        if logx: ax.set_xscale("log")
         ax.legend(loc="lower right", fontsize=5)
         ax.set_title(comment, size=8)
 
@@ -341,6 +342,14 @@ class MultiRate:
         if ax.get_ylim()[0] < 1e-4: ax.set_ylim(bottom=1e-4)
         ax.set_xlabel(r"$t (\rm s)$")
         ax.set_ylabel(r"$N_{\rm i}$")
+
+        ax2 = f.add_axes([.52, .33, .43, .10])
+        if logx: ax2.set_xscale("log")
+
+        self.plot_residuals(ax=ax2, show=False, weighted=True)
+        ax2.tick_params(labelsize=7)
+        ax2.set_title("weighted residuals", size=7)
+
         f.savefig(fname, dpi=200)
         plt.close(f)
 
@@ -393,6 +402,47 @@ class MultiRate:
                 ax.plot(x+self.fit_t0, fit[i], fitfmt, c=c)
             if len(self.fitcolumns) > 1:
                 ax.plot(x+self.fit_t0, np.sum(fit, axis=0), c="k")
+
+        if show == True:
+            ax.set_yscale("log")
+            ax.legend()
+            plt.show()
+
+        return ax
+
+    def plot_residuals(self, ax=None, show=False, weighted=False, symbols=["o", "s", "v", "^", "D", "h"], colors=["r", "g", "b", "m", "k", "orange"],\
+            opensymbols=False, plot_columns=None):
+        import matplotlib.pyplot as plt
+        if ax is None:
+            ax = plt.gca()
+
+        if plot_columns is None: plot_columns = range(self.rates[0].nions)
+        cdict = {col: i for i, col in enumerate(plot_columns)}
+        lines = {}
+        for j, rate in enumerate(self.rates):
+            t = rate.time
+            #print("\n"*3 + "*"*80)
+            #print(rate.fname)
+            fit = self.fitfunc(self.fitparam, t-self.fit_t0)
+            for i, column in enumerate(self.fitcolumns):
+                """
+                print("\n"*2 + "*"*3 + " " + rate.ionname[column])
+                print(rate.time)
+                print(t - self.fit_t0)
+                print(rate.data_mean[column])
+                print(rate.data_std[column])
+                print(fit[i])
+                print((rate.data_mean[column] - fit[i])/rate.data_std[column])
+                """
+                if column in plot_columns:
+                    j = cdict[column]
+                    if weighted:
+                        ax.plot(t, (rate.data_mean[column] - fit[i])/rate.data_std[column],
+                                symbols[j], color=colors[j], lw=0.5, ms=2)
+                    else:
+                        ax.errorbar(t, rate.data_mean[column] - fit[i], yerr=rate.data_std[column],
+                                fmt=symbols[j], color=colors[j], lw=0.5, ms=2)
+        ax.set_yscale("symlog", linthresh=10)
 
         if show == True:
             ax.set_yscale("log")
