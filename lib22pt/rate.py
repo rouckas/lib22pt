@@ -328,6 +328,8 @@ class MultiRate:
         self.fitmask = slice(None)
         self.fnames = fnames
 
+        self.sigma_min = 0.01 # lower bound on the measurement accuracy
+
     def plot_to_file(self, fname, comment=None, figsize=(6,8.5), logx=False, *args, **kwargs):
         import matplotlib.pyplot as plt
         from lmfit import fit_report
@@ -524,9 +526,8 @@ class MultiRate:
     def _errfunc(self, p, bounds={}):
 
         def errfunc_single( p, x, y, xerr, norm=1):
-            sigma_min = 0.01
             res = (self.fitfunc(p, x)*norm-y[self.fitcolumns,:])/\
-                (xerr[self.fitcolumns,:] + sigma_min)
+                (xerr[self.fitcolumns,:] + self.sigma_min)
             return res.ravel()
 
         # sum errors over all files (normalize if requested)
@@ -548,9 +549,8 @@ class MultiRate:
     def _errfunc_species(self, p, species, bounds={}):
 
         def errfunc_single( p, x, y, xerr, norm=1):
-            sigma_min = 0.01
             res = (self.fitfunc(p, x)[species]*norm-y[self.fitcolumns,:][species])/\
-                (xerr[self.fitcolumns,:][species] + sigma_min)
+                (xerr[self.fitcolumns,:][species] + self.sigma_min)
             return res.ravel()
 
         # sum errors over all files (normalize if requested)
