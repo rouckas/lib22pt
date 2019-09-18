@@ -44,7 +44,7 @@ def fitter(p0, errfunc, args):
 
 def dict2Params(dic):
     from lmfit import Parameters
-    if isinstance(dic, Parameters): return dic
+    if isinstance(dic, Parameters): return dic.copy()
     p = Parameters()
     for key, val in dic.items():
         p.add(key, value=val)
