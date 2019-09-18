@@ -104,7 +104,7 @@ class Rate:
                 if re.search("^Iterations=", line) :
                     ioniter.append(int(re.search("Iterations=(\d+)", line).group(1)))
                 if re.search("^Name=", line) :
-                    ionname.append(re.search("Name=(.+)$", line).group(1))
+                    ionname.append(re.search("Name=(.+)$", line).group(1).strip('\"'))
 
             if toks[0] == "Time":
                 if len(toks)-2 != nions:
@@ -120,8 +120,7 @@ class Rate:
 
                 if len(ionname) < nions:
                     warn("Corrupt file " + str(fname) +  ": Names for all species not recorded, making something up...", 2)
-                    while len(ionname) < nions:
-                        ionname.append("Ion%d" % (len(ionname)+1,))
+                    ionname += toks[len(ionname)+2:]
 
                 state = 1
                 time = []
@@ -153,7 +152,10 @@ class Rate:
                         data.resize((nions, npoints, self.niter)) 
                     pointno = 0
                     continue
-                data[:, pointno, iterno] = [float(x) for x in toks][1:-1]
+                try:
+                    data[:, pointno, iterno] = [float(x) for x in toks][1:-1]
+                except ValueError:
+                    warn("Error in file " + fname + " number of ions probably wrong")
                 pointno += 1
 
         ioniter = np.array(ioniter)
