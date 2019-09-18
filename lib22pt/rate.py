@@ -350,12 +350,16 @@ class MultiRate:
         ax.set_xlabel(r"$t (\rm s)$")
         ax.set_ylabel(r"$N_{\rm i}$")
 
-        ax2 = f.add_axes([.52, .33, .43, .10])
-        if logx: ax2.set_xscale("log")
+        if self.fitresult is not None:
+            ax2 = f.add_axes([.55, .345, .40, .10])
+            if logx: ax2.set_xscale("log")
 
-        self.plot_residuals(ax=ax2, show=False, weighted=True)
-        ax2.tick_params(labelsize=7)
-        ax2.set_title("weighted residuals", size=7)
+            self.plot_residuals(ax=ax2, show=False, weighted=True)
+            ax2.tick_params(labelsize=7)
+            ax2.set_title("weighted residuals", size=7)
+            ax2.set_xlabel(r"$t (\rm s)$", size=7)
+            ax2.set_ylabel(r"$R/\sigma$", size=7)
+
 
         f.savefig(fname, dpi=200)
         plt.close(f)
@@ -395,7 +399,7 @@ class MultiRate:
             ax.plot(rate.time, S/self.norms[j], ".", c="0.5", label=label)
 
 
-        if self.fitfunc != None:
+        if self.fitfunc != None and self.fitparam != None:
             mintime = np.min([np.min(r.time[self.fitmask]) for r in self.rates])
             maxtime = np.max([np.max(r.time[self.fitmask]) for r in self.rates])
             x = np.logspace(np.log10(mintime), np.log10(maxtime), 500)-self.fit_t0
@@ -504,13 +508,13 @@ class MultiRate:
         writer = pd.ExcelWriter(filename)
         df.to_excel(writer, "data")
 
-        if self.fitfunc != None:
+        if self.fitfunc != None and self.fitparam != None:
             if time is None:
                 mintime = np.min([np.min(r.time[self.fitmask]) for r in self.rates])
                 maxtime = np.max([np.max(r.time[self.fitmask]) for r in self.rates])
                 time = np.logspace(np.log10(mintime), np.log10(maxtime), 500)
 
-            time = time[time>=self.fit_t0]
+            time = time[time-self.fit_t0 >= 0.]
             fit = self.fitfunc(self.fitparam, time-self.fit_t0)
 
             df_fit = pd.DataFrame(time, columns = ["tt"])
