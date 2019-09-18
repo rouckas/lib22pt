@@ -196,6 +196,8 @@ class Rate:
         self.time = time
         self.data = data
 
+        self.fname = fname
+
         self.average()
 
         if not full_data:
@@ -324,6 +326,7 @@ class MultiRate:
         self.fitresult = None
         self.fitcolumns = None
         self.fitmask = slice(None)
+        self.fnames = fnames
 
     def plot_to_file(self, fname, comment=None, figsize=(6,8.5), logx=False, *args, **kwargs):
         import matplotlib.pyplot as plt
@@ -473,17 +476,26 @@ class MultiRate:
         to_save = np.vstack((time+self.fit_t0, np.vstack(fit))).T
         np.savetxt(filename, to_save)
 
-    def save_data_fit_excel(self, filename, time=None, metadata={}):
-        import pandas as pd
-        for j, rate in enumerate(self.rates):
-            if j>0:
-                TODO()
-                norm = 1/self.norms[j]
 
+    def save_data_fit_excel(self, filename, time=None, normalize=False, metadata={}):
+        import pandas as pd
+        dfs = []
+        for j, rate in enumerate(self.rates):
             df = pd.DataFrame(rate.time, columns=["tt"])
+            if self.normalized:
+                df["norm"] = 1/self.norms[j]
+                if normalize:
+                    norm = 1/self.norms[j]
+                else:
+                    norm = 1
+
             for k, name in enumerate(rate.ionname):
-                df[name] = rate.data_mean[k]
-                df[name+"_err"] = rate.data_std[k]
+                df[name] = rate.data_mean[k]*norm
+                df[name+"_err"] = rate.data_std[k]*norm
+            df["rate"] = rate.fname
+            dfs.append(df)
+
+        df = pd.concat(dfs, ignore_index=True)
 
         writer = pd.ExcelWriter(filename)
         df.to_excel(writer, "data")
