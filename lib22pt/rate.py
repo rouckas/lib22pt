@@ -431,7 +431,7 @@ class MultiRate:
         cdict = {col: i for i, col in enumerate(plot_columns)}
         lines = {}
         for j, rate in enumerate(self.rates):
-            t = rate.time
+            t = rate.time[self.fitmask]
             #print("\n"*3 + "*"*80)
             #print(rate.fname)
             fit = self.fitfunc(self.fitparam, t-self.fit_t0)
@@ -443,15 +443,15 @@ class MultiRate:
                 print(rate.data_mean[column])
                 print(rate.data_std[column])
                 print(fit[i])
-                print((rate.data_mean[column] - fit[i])/rate.data_std[column])
+                print((rate.data_mean[column][self.fitmask] - fit[i])/rate.data_std[column][self.fitmask])
                 """
                 if column in plot_columns:
                     j = cdict[column]
                     if weighted:
-                        ax.plot(t, (rate.data_mean[column] - fit[i])/rate.data_std[column],
+                        ax.plot(t, (rate.data_mean[column][self.fitmask] - fit[i])/rate.data_std[column][self.fitmask],
                                 symbols[j], color=colors[j], lw=0.5, ms=2)
                     else:
-                        ax.errorbar(t, rate.data_mean[column] - fit[i], yerr=rate.data_std[column],
+                        ax.errorbar(t, rate.data_mean[column][self.fitmask] - fit[i], yerr=rate.data_std[column][self.fitmask],
                                 fmt=symbols[j], color=colors[j], lw=0.5, ms=2)
         ax.set_yscale("symlog", linthresh=10)
 
