@@ -477,11 +477,10 @@ class MultiRate:
             mintime = np.min([np.min(r.time[self.fitmask]) for r in self.rates])
             maxtime = np.max([np.max(r.time[self.fitmask]) for r in self.rates])
             time = np.logspace(np.log10(mintime), np.log10(maxtime), 500)
-        time -= self.fit_t0
-        time = time[time>=0.]
 
-        fit = self.fitfunc(self.fitparam, time)
-        to_save = np.vstack((time+self.fit_t0, np.vstack(fit))).T
+        time = time[time-self.fit_t0 >= 0.]
+        fit = self.fitfunc(self.fitparam, time-self.fit_t0)
+        to_save = np.vstack((time, np.vstack(fit))).T
         np.savetxt(filename, to_save)
 
 
