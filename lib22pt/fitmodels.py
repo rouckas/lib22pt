@@ -7,98 +7,116 @@ class BaseModel:
         self.params = P(params)
         return self
 
+    def init_params(self, params):
+        return P(params)
+
 
 
 class Decay(BaseModel):
     params = P({"N0": 100, "r": 10})
 
-    @staticmethod
-    def func (p, x):
+    def func (self, p, x):
         N0 = p["N0"].value
         r  = p["r" ].value
         return (N0*np.exp(-x*r), )
- 
 
+class DecayTwoExp(BaseModel):
+    params = P({"N0": 100, "r0": 10,
+        "N1": 1, "r1": 50})
 
-class Change(BaseModel):
-    params = P({"N0": 1000, "N1": 10, "r": 1, "loss":0})
-    params["loss"].set(vary=False)
+    def init_params(self, params=None):
+        p = P(params) if params is not None else self.params
+        #p.add("deltaN", value=p["N0"].value - p["N1"].value, min=0)
+        #p.add("N1", expr="N0-deltaN")
+        return p
 
-    @staticmethod
-    def func(p, x):
+    def func (self, p, x):
+        print(p.valuesdict())
         N0 = p["N0"].value
+        r0 = p["r0"].value
         N1 = p["N1"].value
-        r = p["r"].value
-        loss = p["loss"].value
-        return (
-            np.exp(-x*r)*N0,
-            np.exp(-x*loss)*(N1 + N0*r/(loss-r)*(np.exp(-x*(r-loss))-1))
-            )
+        r1 = p["r1"].value
+        return (N0*np.exp(-x*r0) + N1*np.exp(-x*r1), )
+
+class CPlusPlusTwoExp(BaseModel):
+    params = P({
+        "Cpp1": 100.,      "Cpp2":10.,
+        "rC1":1.,          "rC2":1.,
+        "rH31":1.,         "rH32":1.,
+        "rCd1":100,        "rCd2":20,
+        "C": 10.,          "H3":10.,
+        "rH5": 1.
+        })
+
+    #def init_params(self, params=None):
+    #    p = P(params) if params is not None else self.params
+    #    #for key in p: p[key].set(min=0)
+    #    return p
+
+    def func(self, p, x):
+        specnames = ["Cpp1", "Cpp2", "C", "H3"]
+        ratenames = ["rCd1", "rCd2", "rC1", "rC2", "rH31", "rH32", "rH5"]
+
+        p = p.valuesdict()
+        rCd1, rCd2, rC1, rC2, rH31, rH32, rH5 = [p[name] for name in ratenames]
+        Cpp1, Cpp2, C, H3 = range(4)
+        eqn = lambda y, x: [\
+                # C++1, C++2
+                -rCd1*y[Cpp1],\
+                -rCd2*y[Cpp2],\
+                # C+
+                rC1*y[Cpp1] + rC2*y[Cpp2],\
+                 # H3
+                rH31*y[Cpp1] + rH32*y[Cpp2] - rH5*y[H3],\
+                ]
+        y0 = [p[name] for name in specnames]
+        t = np.r_[0, x]
+        y = odeint(eqn, y0, t, mxstep=10000)
+        y[:,Cpp1] += y[:,Cpp2]
+        res = y[1:,[Cpp1, C, H3]]
+        return res.T
 
 
-class ChangeChannel(BaseModel):
-    params = P({"N0": 1000, "N1": 100, "r": 10, "bratio":.5, "loss":0})
-    params["loss"].set(vary=False)
+class ChangeChannelBGLoss(BaseModel):
+    params = P({"N0": 1000, "N1": 10, "r": 1, "bratio":0.5, "bg":1., "loss":0})
 
-    @staticmethod
-    def func(p, x):
-        N0 = p["N0"].value
-        N1 = p["N1"].value
-        r = p["r"].value
-        bratio = p["bratio"].value
-        loss = p["loss"].value
-        return (
-            np.exp(-x*r)*N0,
-            np.exp(-x*loss)*(N1 + bratio*N0*r/(loss-r)*(np.exp(-x*(r-loss))-1))
-            )   
-
-
-class ChangeChannelBG(BaseModel):
-    params = P({"N0": 1000, "N1": 100, "r": 10, "bratio":.5, "bg": 10})
-
-    @staticmethod
-    def func(p, x):
+    def func(self, p, x):
         N0 = p["N0"].value
         N1 = p["N1"].value
         r = p["r"].value
         bratio = p["bratio"].value
         bg = p["bg"].value
+        loss = p["loss"].value
         return (
             np.exp(-x*r)*N0 + bg,
-            N0*bratio*(1-np.exp(-x*r)) + N1
+            np.exp(-x*loss)*(N1 + bratio*N0*r/(loss-r)*(np.exp(-x*(r-loss))-1))
             )
 
+class Change(ChangeChannelBGLoss):
+    def init_params(self, params=None):
+        p = P(params) if params is not None else self.params
+        p.add("bratio", value=1, vary=False)
+        p.add("bg", value=0, vary=False)
+        p.add("loss", value=0, vary=False)
+        return p
 
-class Change2Channel(BaseModel):
-    params = P({
-        "N0" : 1000.,      "N1": 100.,
-        "N2" : 1.,         "r1": 1.,
-        "r2" : 10.,        "r":20})
+class ChangeChannel(ChangeChannelBGLoss):
+    def init_params(self, params=None):
+        p = P(params) if params is not None else self.params
+        p.add("bg", value=0, vary=False)
+        p.add("loss", value=0, vary=False)
+        return p
 
-    @staticmethod
-    def func (p, x):
-        N0 = p["N0"].value
-        N1 = p["N1"].value
-        N2 = p["N2"].value
-        r1 = p["r1"].value
-        r2 = p["r2"].value
-        r = p["r"].value
-        return (
-            np.exp(-x*r)*N0,
-            N0*r1/r*(1-np.exp(-x*r)) + N1,
-            N0*r2/r*(1-np.exp(-x*r)) + N2,
-            )
 
 class ChangeNChannel(BaseModel):
-    params = P({
-        "N0" : 1000.,        "r0":20,
-        "N1": 100.,         "r1": 1.,
-        "N2" : 1.,         "r2": 10.})
-
     def __init__(self, N):
         self.N = N
+        pdict = {"N0" : 1000., "r0":20}
+        for i in range(1, self.N):
+            pdict["r%d"%i] = pdict["r0"]/self.N
+            pdict["N%d"%i] = 10.
+        self.params = P(pdict)
 
-    #@staticmethod
     def func (self, p, x):
         N0 = p["N0"].value
         r0 = p["r0"].value
@@ -111,8 +129,7 @@ class Equilib(BaseModel):
         "N0" : 1000.,      "N1": 100.,
         "r0" : 1.,         "r1": 1.})
 
-    @staticmethod
-    def func(p, x):
+    def func(self, p, x):
         N0 = p["N0"].value
         N1 = p["N1"].value
         r0 = p["r0"].value
@@ -167,8 +184,7 @@ class Ar(BaseModel):
         "H2": 1.,           "r3":1.,
         "H3": 1.,           "r4":1.,})
 
-    @staticmethod
-    def func(p, x):
+    def func(self, p, x):
         specnames = ["Ar", "ArH", "H2", "H3"]
         ratenames = ["r1", "r2", "r3", "r4"]
 
@@ -201,8 +217,7 @@ class Ar_simple(BaseModel):
         "H2": 1.,           "r3":1.,
                              "r4":1.,})
 
-    @staticmethod
-    def func(p, x):
+    def func(self, p, x):
         specnames = ["Ar", "ArH", "H2"]
         ratenames = ["r1", "r2", "r3", "r4"]
 
@@ -234,8 +249,7 @@ class Oplus(BaseModel):
         "rO3":1,            "rOH3":10,
         "rO3d":1})
 
-    @staticmethod
-    def func(p, x):
+    def func(self, p, x):
         specnames = ["O", "OH", "OH2", "OH3", "H"]
         ratenames = ["rOH", "rOH2", "rH", "rOH3", "rHd"]
 
@@ -272,8 +286,7 @@ class OminusHD(BaseModel):
         "r1":1.,     "r4":10.,
         "r2":1,      "r3":1})
 
-    @staticmethod
-    def func(p, x):
+    def func(self, p, x):
         specnames = ["O", "OH", "OD"]
         ratenames = ["r1", "r2", "r3", "r4", "r5"]
 
@@ -307,8 +320,7 @@ class OHplus(BaseModel):
                     "rOH3":10,
         })
 
-    @staticmethod
-    def func(p, x):
+    def func(self, p, x):
         specnames = ["O", "OH", "OH2", "OH3", "NH3"]
         ratenames = ["rOH", "rOH2", "rOH3", "rNH4"]
 
@@ -346,8 +358,7 @@ class NH(BaseModel):
         "rH3":1,            "rNH3":10,
         "rH3d":1})
 
-    @staticmethod
-    def func(p, x):
+    def func(self, p, x):
         specnames = ["N", "NH", "NH2", "NH3", "H3", "N15"]
         ratenames = ["rNH", "rNH2", "rH3", "rNH3", "rH3d"]
 
@@ -386,8 +397,7 @@ class NplusHD(BaseModel):
         "rNH2":50,          "rH3":1,
         "rNH3":10,          "rNDd":50,})
 
-    @staticmethod
-    def func(p, x):
+    def func(self, p, x):
         specnames = ["N", "NH", "ND", "NH2"]
         ratenames = ["rNH", "rND", "rNH2", "rH3", "rNH3", "rNDd"]
 
@@ -421,8 +431,7 @@ class NHn_long(BaseModel):
         "rNH4":1,           "rH3d":1,
         "rNH3rel":1,        "rNH4exc":10})
 
-    @staticmethod
-    def func(p, x):
+    def func(self, p, x):
         N, NH, NH2, NH3, NH4, H3, NH3e = range(7)
         p = p.valuesdict()
         eqn = lambda y, x: [\
@@ -461,8 +470,7 @@ class NHn_short(BaseModel):
         "rH3d":10.
         })
 
-    @staticmethod
-    def func(p, x):
+    def func(self, p, x):
         N, NH, NH2, NH3, H3, NH4 = range(6)
         p = p.valuesdict()
         eqn = lambda y, x: [\
