@@ -31,7 +31,8 @@ class Mass:
     def merge(self, scan):
         self.data = np.vstack((self.data, scan.data))
 
-    def plot(self, ax=None, show=False, fmt="-", color="b", offset=0.5, significant_only=True, decorate=True):
+    def plot(self, ax=None, show=False,
+            plotargs=dict(linestyle="-", color="C0", linewidth=2), offset=0.5, significant_only=True, decorate=True):
         from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 
         if ax is None:
@@ -40,19 +41,18 @@ class Mass:
 
         if significant_only:
             ax.plot(self.data[:,0]-offset, self.data[:,1]-self.data[:,2], label=self.fname,\
-                linestyle=fmt, color=color, linewidth=2)
+                **plotargs)
         else:
             ax.errorbar(self.data[:,0]-offset, self.data[:,1], yerr=self.data[:,2], label=self.fname,\
-                linestyle=fmt, color=color, linewidth=2, elinewidth=1, capsize=2)
+                **plotargs)
 
         if decorate:
-            #ax.set_yscale("symlog", linthreshy=1, linscaley=0.5)
-            ax.set_yscale("symlog")
+            ax.set_yscale("symlog", linthreshy=1, linscaley=0.5)
             ax.set_xlabel("mass (amu)")
             ax.set_ylabel("counts")
             ax.set_ylim(ymin=0)
             ax.xaxis.set_minor_locator(MultipleLocator(1))
-            #ax.yaxis.set_major_formatter(FormatStrFormatter("%d"))
+            ax.yaxis.set_major_formatter(FormatStrFormatter("%d"))
 
             ax.grid(linewidth=1)
             ax.grid(which="minor", color="0.5")
