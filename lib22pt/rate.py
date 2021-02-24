@@ -574,7 +574,7 @@ class MultiRate:
         return np.hstack(err)
 
 
-    def fit_model(self, model, p0, columns, mask=slice(None), t0=0., boundweight=1e3):
+    def fit_model(self, model, p0, columns, mask=slice(None), t0=0., quadratic_bounds=True, boundweight=1e3):
         self.fitfunc = model.func # store the fitfunc for later
         self.model = model
         self.fitcolumns = columns
@@ -587,10 +587,11 @@ class MultiRate:
         # estimate errors even if the parameter is "forced" outside the interval
         # idea: detect if fitted parameter is close to boundary, then make it fixed...
         bounds = {}
-        for key, p in p0.items():
-            if np.any(np.isfinite([p.min, p.max])):
-                bounds[key] = (p.min, p.max, boundweight)
-                p.set(min=-np.inf, max=np.inf)
+        if quadratic_bounds:
+            for key, p in p0.items():
+                if np.any(np.isfinite([p.min, p.max])):
+                    bounds[key] = (p.min, p.max, boundweight)
+                    p.set(min=-np.inf, max=np.inf)
 
         # If needed, the normalization factors are appended to the list of
         # fitting parameters
