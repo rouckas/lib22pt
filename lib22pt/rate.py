@@ -345,7 +345,8 @@ class MultiRate:
         ax.set_title(comment, size=8)
 
         if self.fitresult is not None:
-            f.text(0.1, 0.45, fit_report(self.fitresult, min_correl=0.5), size=6, va="top", family='monospace')
+            f.text(0.1, 0.44, "p-value = %.2g\n"%self.fitpval
+                    + fit_report(self.fitresult, min_correl=0.5), size=6, va="top", family='monospace')
         if ax.get_ylim()[0] < 1e-4: ax.set_ylim(bottom=1e-4)
         ax.set_xlabel(r"$t (\rm s)$")
         ax.set_ylabel(r"$N_{\rm i}$")
@@ -599,13 +600,13 @@ class MultiRate:
             for i in range(1,len(self.rates)): p0.add("n%d"%i, value=1)
 
         # DO THE FITTING
-        self.fitparam, pval, self.fitresult = fitter(p0, self._errfunc, (bounds,))
+        self.fitparam, self.fitpval, self.fitresult = fitter(p0, self._errfunc, (bounds,))
 
         # extract the normalization factors
         if self.normalized:
             for i in range(1,len(self.rates)): self.norms[i] = self.fitparam["n%d"%i].value
 
-        return self.fitparam, pval, self.fitresult
+        return self.fitparam, self.fitpval, self.fitresult
 
 
     def fit_decay(self, p0={"N0":100, "r":10}, columns=[0], mask=slice(None), t0=0.):
