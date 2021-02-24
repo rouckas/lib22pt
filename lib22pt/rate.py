@@ -39,7 +39,7 @@ def fitter(p0, errfunc, args):
     chi = chi2.cdf(result.redchi, result.nfree)
     if chi > 0.5: pval = -(1-chi)*2
     else: pval = chi*2
-    pval = chi
+    pval = 1-chi
     return result.params, pval, result
 
 def dict2Params(dic):
