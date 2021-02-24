@@ -91,6 +91,8 @@ class Rate:
             if len(toks) == 0:
                 continue
             if state == 0:
+                if re.search("Period \(s\)=", line):
+                    frequency = 1/float(re.search("Period \(s\)=([0-9.]+)", line).group(1))
                 if re.search("Frequency=", line):
                     frequency = float(re.search("Frequency=([0-9.]+)", line).group(1))
                 if re.search("Integration time \(s\)", line):
