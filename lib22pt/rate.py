@@ -25,7 +25,7 @@ def warn(message, level):
 def fitter(p0, errfunc, args):
 
     from lmfit import minimize
-    result = minimize(errfunc, p0, args=args)
+    result = minimize(errfunc, p0, args=args, nan_policy="omit")
 
     if not result.success:
         msg = " Optimal parameters not found: " + result.message
@@ -36,7 +36,7 @@ def fitter(p0, errfunc, args):
             warn("Warning: fitter: parameter \"%s\" was not changed, it is probably redundant"%name, 2)
 
     from scipy.stats import chi2
-    chi = chi2.cdf(result.redchi, result.nfree)
+    chi = chi2.cdf(result.chisqr, result.nfree)
     if chi > 0.5: pval = -(1-chi)*2
     else: pval = chi*2
     pval = 1-chi
@@ -456,7 +456,7 @@ class MultiRate:
                     else:
                         ax.errorbar(t, rate.data_mean[column][self.fitmask] - fit[i], yerr=rate.data_std[column][self.fitmask],
                                 fmt=symbols[j], color=colors[j], lw=0.5, ms=2)
-        ax.set_yscale("symlog", linthresh=10)
+        #ax.set_yscale("symlog", linthresh=10)
 
         if show == True:
             ax.set_yscale("log")
