@@ -142,6 +142,27 @@ class Equilib(BaseModel):
             -C1*np.exp(-x*r) + C2*r0/r1
             )
 
+class EquilibLoss(BaseModel):
+    params = P({
+        "N0" : 1000.,      "N1": 100.,
+        "r0" : 1.,         "r1": 1.,
+        "rloss":0.1})
+
+    def func(self, p, x):
+        N0 = p["N0"].value
+        N1 = p["N1"].value
+        r0 = p["r0"].value
+        r1 = p["r1"].value
+        rloss = p["rloss"].value
+        r = r0+r1
+        C2 = r1/r*(N0 + N1)
+        C1 = N0 - C2
+        return (
+            (C1*np.exp(-x*r) + C2) * np.exp(-x*rloss),
+            (-C1*np.exp(-x*r) + C2*r0/r1) * np.exp(-x*rloss)
+            )
+
+
 class CPlusPlus(BaseModel):
     params = P({
         "Cpp": 100.,       "rC":1.,
