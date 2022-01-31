@@ -109,10 +109,11 @@ class Rate:
                     ionname.append(re.search("Name=(.+)$", line).group(1).strip('\"'))
 
             if toks[0] == "Time":
-                if len(toks)-2 != nions:
+                iontoks = line.split("\t")[1:]
+                if len(iontoks) != nions:
                     print("Corrupt file", fname, "Wrong number of ions in the header. Trying to recover")
                     # Assume that the Time header is correct:
-                    nions = len(toks)-2
+                    nions = len(iontoks)
                     ioniter = ioniter[:nions]
 
                 if len(ioniter) < nions:
@@ -122,7 +123,7 @@ class Rate:
 
                 if len(ionname) < nions:
                     warn("Corrupt file " + str(fname) +  ": Names for all species not recorded, making something up...", 2)
-                    ionname += toks[len(ionname)+2:]
+                    ionname += iontoks[len(ionname):]
 
                 state = 1
                 time = []
