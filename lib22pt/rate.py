@@ -53,7 +53,7 @@ P = dict2Params
 
 
 class Rate:
-    def __init__(self, fname, full_data=False, skip_iter=[]):
+    def __init__(self, fname, full_data=False, skip_iter=[], t_offset=0.):
         import re
         import datetime as dt
         fr = open(fname)
@@ -196,8 +196,9 @@ class Rate:
 
         self.nions = nions
         self.ionname = ionname
+        self.t_offset = t_offset
 
-        self.time = time
+        self.time = time - t_offset
         self.data = data
 
         self.fname = fname
@@ -317,9 +318,9 @@ class Rate:
 
 
 class MultiRate:
-    def __init__(self, fnames, directory=""):
+    def __init__(self, fnames, directory="", t_offset=0.):
         if isinstance(fnames, str): fnames = [fnames]
-        self.rates = [Rate(directory+fname, full_data=True) for fname in fnames]
+        self.rates = [Rate(directory+fname, full_data=True, t_offset=t_offset) for fname in fnames]
 
         # if True, a normalization factor for each rate with respect to rates[0] is a free fitting param
         self.normalized = True
