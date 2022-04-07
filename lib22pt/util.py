@@ -129,7 +129,7 @@ def polysmooth(points, xdata, ydata, wlen, deg, leastdeg=None, deriv=0, logwindo
             res[i] = np.polyder(np.poly1d(p), m=deriv)(point)
     return res
 
-def decimate(dataframe, bins, refcol="T22PT", add_errs=False):
+def decimate_dataframe(dataframe, bins, refcol="T22PT", add_errs=False):
     import pandas as pd
     """decimate pandas dataframe by binning values in refcol into bins"""
 
