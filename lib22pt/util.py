@@ -129,11 +129,13 @@ def polysmooth(points, xdata, ydata, wlen, deg, leastdeg=None, deriv=0, logwindo
             res[i] = np.polyder(np.poly1d(p), m=deriv)(point)
     return res
 
-def decimate_dataframe(dataframe, bins, refcol="T22PT", add_errs=False):
-    import pandas as pd
-    """decimate pandas dataframe by binning values in refcol into bins"""
 
-    from lib22pt.avg import w_avg_std, wstd_avg_std
+def decimate_dataframe(dataframe, bins, refcol="T22PT", errtype="sample_weights", dropnan=True):
+    import pandas as pd
+    """decimate pandas dataframe by binning values in refcol into bins.
+    See avg.weighted_mean for explanation of the errtype"""
+
+    from lib22pt.avg import w_avg_std, wstd_avg_std, weighted_mean
     cols_w_errs = []
     cols = list(dataframe.columns)
     for col in dataframe.columns:
@@ -147,16 +149,14 @@ def decimate_dataframe(dataframe, bins, refcol="T22PT", add_errs=False):
     averages = pd.DataFrame(index=[], columns= [])
     for i in range(len(bins)-1):
         indices = (dataframe[refcol] >= bins[i] ) & (dataframe[refcol] < bins[i+1])
-#        print(bins[i], bins[i+1])
-#        print(indices)
-#        print()
         if not np.any(indices): continue
         subset = dataframe.loc[indices]
 
         for col in cols_w_errs:
             if len(subset[col]) > 1:
-                averages.loc[i,col], averages.loc[i,col+"_err"], dum =\
-                        w_avg_std(subset[col].values, 1/subset[col+"_err"].values**2, dropnan=None)
+                averages.loc[i,col], averages.loc[i,col+"_err"] =\
+                        weighted_mean(subset[col].values, std=subset[col+"_err"].values, dropnan=True, errtype=errtype)
+
             else:
                 averages.loc[i,col], averages.loc[i,col+"_err"] =\
                         subset[col].iloc[0], subset[col+"_err"].iloc[0]
@@ -169,10 +169,6 @@ def decimate_dataframe(dataframe, bins, refcol="T22PT", add_errs=False):
             elif len(subset[col].dropna()) > 0:
                 averages.loc[i,col], averages.loc[i,col+"_err"] =\
                         np.nanmean(subset[col].astype(float)), np.nanstd(subset[col].astype(float))
-        if add_errs:
-            # for example to account for stat spread of data + fit quality
-            raise(NotImplementedError())
-            averages[i,3] += wstd_avg_std(subset[:,1], subset[:,2])[1]
     return averages
 
 
