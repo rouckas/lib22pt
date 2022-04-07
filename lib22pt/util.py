@@ -211,6 +211,44 @@ def stitch(avg1, avg2, debug=False):
     return p, sigma, pval
 
 
+def shift_T(df, Tcol, ncols, kcols, T_shift, T_e_low, T_e_high, sys_only=False):
+    import pandas as pd
+    df[Tcol+"_shift"] = df[Tcol] + T_shift
+    f = np.sqrt(df[Tcol+"_shift"]/df[Tcol])
+
+    for ncol in ncols:
+        try:
+            df[ncol+"_shift"] = df[ncol]/f
+        except(KeyError):
+            pass # we are probably dealing with metadata dict
+
+    for kcol in kcols:
+        df[kcol+"_shift"] = df[kcol]*f
+        df[kcol+"_shift_err"] = df[kcol+"_err"]*f
+
+    # temperature error is nonlinear and non-random. Determine the total error bound by interval arithmetic
+    f_low = np.sqrt((df[Tcol+"_shift"]-T_e_low)/df[Tcol+"_shift"])
+    f_high = np.sqrt((df[Tcol+"_shift"]+T_e_high)/df[Tcol+"_shift"])
+    for kcol in kcols:
+        if sys_only:
+            # these errors are purely systematic
+            df[kcol+"_shift_loerr"] = df[kcol+"_shift"]*(1-f_low)# + df[kcol+"_err"]*f_low
+            df[kcol+"_shift_hierr"] = df[kcol+"_shift"]*(f_high-1)# + df[kcol+"_err"]*f_high
+        else:
+            # include stat errors
+            df[kcol+"_shift_loerr"] = df[kcol+"_shift"]*(1-f_low) + df[kcol+"_err"]*f_low
+            df[kcol+"_shift_hierr"] = df[kcol+"_shift"]*(f_high-1) + df[kcol+"_err"]*f_high
+
+    # sum temperature errors if available
+    if isinstance(df, pd.DataFrame) and Tcol+"_err" in df.columns:
+        T_err = df[Tcol+"_err"]
+    else:
+        T_err = 0.
+    df[Tcol+"_shift_loerr"] = T_err + T_e_low
+    df[Tcol+"_shift_hierr"] = T_err + T_e_high
+
+    return
+
 
 def print_banner(text, ch='#', length=78):
     spaced_text = ' %s ' % text
