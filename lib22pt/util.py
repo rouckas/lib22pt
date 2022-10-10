@@ -130,10 +130,11 @@ def polysmooth(points, xdata, ydata, wlen, deg, leastdeg=None, deriv=0, logwindo
     return res
 
 
-def decimate_dataframe(dataframe, bins, refcol="T22PT", errtype="sample_weights", dropnan=True):
+def decimate_dataframe(dataframe, bins, refcol="T22PT", errtype="sample_weights", dropnan=True, strcols=["note", "Viscovac"]):
     import pandas as pd
     """decimate pandas dataframe by binning values in refcol into bins.
-    See avg.weighted_mean for explanation of the errtype"""
+    See avg.weighted_mean for explanation of the errtype.
+    strcols defines the names of columns that should be interpreted as strings, i.e., not averaged"""
 
     from lib22pt.avg import w_avg_std, wstd_avg_std, weighted_mean
     cols_w_errs = []
@@ -164,7 +165,7 @@ def decimate_dataframe(dataframe, bins, refcol="T22PT", errtype="sample_weights"
         for col in cols_wo_errs:
             if isinstance(subset[col].iloc[0], (tuple)):
                 averages.loc[i, col] = str(sum(list(subset[col]), ()))
-            elif isinstance(subset[col].iloc[0], (str)) or col == "note":
+            elif isinstance(subset[col].iloc[0], (str)) or col in strcols:
                 averages.loc[i, col] = "".join(map(str, subset[col]))
             elif len(subset[col].dropna()) > 0:
                 averages.loc[i,col], averages.loc[i,col+"_err"] =\
