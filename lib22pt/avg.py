@@ -48,30 +48,30 @@ def weighted_mean(x, w=None, std=None, errtype="", dropnan=False, full_output=Fa
         # Roughly equivalent to the old add_errs choice
         mean, err, _, *full = w_avg_std(x, w, dropnan=dropnan)
 
-    if errtype == "mean_weights":
+    elif errtype == "mean_weights":
         # this choice weights the points by fit errors and returns the estimated variance
         # of the weighted mean (thus accounting for e.g. pressure variations etc...)
         mean, _, err, *full = w_avg_std(x, w, dropnan=dropnan)
 
-    if errtype == "mean_std":
+    elif errtype == "mean_std":
         # this choice assumes that err are the true uncertainties of the data and the variance
         # of the mean is calculated accordingly. This underestimates uncertainties if _err does
         # not include the full statistical error
         mean, err, *full = wstd_avg_std(x, std, dropnan=dropnan, scale_error=False, full_output=full_output)
 
-    if errtype == "mean_std_scaled":
+    elif errtype == "mean_std_scaled":
         # this choice assumes that err are the true uncertainties of the data and the variance
         # of the mean is calculated accordingly. The error is scaled by chi2 if the uncertainties appear to
         # be underestimated
         mean, err, *full = wstd_avg_std(x, std, dropnan=dropnan, scale_error="multiplicative", full_output=full_output)
 
-    if errtype == "mean_std_scaled_additive":
+    elif errtype == "mean_std_scaled_additive":
         # this choice assumes that err are the true uncertainties of the data and the variance
         # of the mean is calculated accordingly. Constant uncertainty is added to the error 
         # if the uncertainties appear to be underestimated
         mean, err, *full = wstd_avg_std(x, std, dropnan=dropnan, scale_error="additive", full_output=full_output)
 
-    if errtype == "sample_std_scaled_additive":
+    elif errtype == "sample_std_scaled_additive":
         # this choice assumes that err are the true uncertainties of the data and the variance
         # of the mean is calculated accordingly. Constant uncertainty is added to the error 
         # if the uncertainties appear to be underestimated. The estimated constant uncertainty
@@ -81,6 +81,9 @@ def weighted_mean(x, w=None, std=None, errtype="", dropnan=False, full_output=Fa
         err = N.sqrt(err**2 + S**2)
         if full_output: full = (S,)
         else: full = ()
+
+    else:
+        raise ValueError("weighted_mean(): unknown errtype '%s'" % errtype)
 
     return mean, err, *full
 
