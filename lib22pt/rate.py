@@ -123,7 +123,7 @@ class Rate:
 
                 if len(ionname) < nions:
                     warn("Corrupt file " + str(fname) +  ": Names for all species not recorded, making something up...", 2)
-                    ionname += iontoks[len(ionname):]
+                    ionname += [s.strip() for s in iontoks[len(ionname):]]
 
                 state = 1
                 time = []
