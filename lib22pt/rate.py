@@ -369,7 +369,9 @@ class MultiRate:
         f.savefig(fname, dpi=200)
         plt.close(f)
 
-    def plot(self, ax=None, show=False, plot_fitfunc=True, symbols=["o", "s", "v", "^", "D", "h"], colors=["r", "g", "b", "m", "k", "orange"],\
+    def plot(self, ax=None, show=False, plot_fitfunc=True,
+            symbols=["o", "s", "v", "^", "D", "h", ">", "<", "p", "+"],
+            colors=["C%d"%i for i in range(10)],\
             opensymbols=False, fitfmt="-", fitcolor=None, hide_uncertain=False, plot_columns=None):
         import matplotlib.pyplot as plt
         if ax is None:
@@ -426,7 +428,9 @@ class MultiRate:
 
         return ax
 
-    def plot_residuals(self, ax=None, show=False, weighted=False, symbols=["o", "s", "v", "^", "D", "h"], colors=["r", "g", "b", "m", "k", "orange"],\
+    def plot_residuals(self, ax=None, show=False, weighted=False,
+            symbols=["o", "s", "v", "^", "D", "h", ">", "<", "p", "+"],
+            colors=["C%d"%i for i in range(10)],\
             opensymbols=False, plot_columns=None):
         import matplotlib.pyplot as plt
         if ax is None:
