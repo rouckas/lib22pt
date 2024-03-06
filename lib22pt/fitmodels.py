@@ -78,7 +78,12 @@ class CPlusPlusTwoExp(BaseModel):
 
 
 class ChangeChannelBGLoss(BaseModel):
-    params = P({"N0": 1000, "N1": 10, "r": 1, "bratio":0.5, "bg":1., "loss":0})
+    """
+    Solves equations
+    A' = -r*(A-bg)
+    B' = +r*bratio*(A-bg) - loss*B
+    """
+    params = P({"N0": 1000, "N1": 10, "r": 1., "bratio":0.5, "bg":1., "loss":0})
 
     def func(self, p, x):
         N0 = p["N0"].value
@@ -87,10 +92,16 @@ class ChangeChannelBGLoss(BaseModel):
         bratio = p["bratio"].value
         bg = p["bg"].value
         loss = p["loss"].value
-        return (
-            np.exp(-x*r)*N0 + bg,
-            np.exp(-x*loss)*(N1 + bratio*N0*r/(loss-r)*(np.exp(-x*(r-loss))-1))
-            )
+        if r != loss:
+            return (
+                np.exp(-x*r)*N0 + bg,
+                np.exp(-x*loss)*(N1 + bratio*N0*r/(loss-r)*(np.exp(-x*(r-loss))-1))
+                )
+        else:
+            return (
+                np.exp(-x*r)*N0 + bg,
+                np.exp(-x*loss)*(N1 + bratio*N0*r*(-x))
+                )
 
 class Change(ChangeChannelBGLoss):
     def init_params(self, params=None):
