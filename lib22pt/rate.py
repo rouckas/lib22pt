@@ -372,7 +372,7 @@ class MultiRate:
     def plot(self, ax=None, show=False, plot_fitfunc=True,
             symbols=["o", "s", "v", "^", "D", "h", ">", "<", "p", "+"],
             colors=["C%d"%i for i in range(10)],\
-            opensymbols=False, fitfmt="-", fitcolor=None, hide_uncertain=False, plot_columns=None):
+            opensymbols=False, fitfmt="-", fitcolor=None, hide_uncertain=False, plot_columns=None, plot_sum=True):
         import matplotlib.pyplot as plt
         if ax is None:
             ax = plt.gca()
@@ -399,11 +399,12 @@ class MultiRate:
             lines[i] = l
 
         # plot sum
-        for j, rate in enumerate(self.rates):
-            # calculate the sum over the plotted data only
-            S = np.sum(rate.data_mean[plot_columns], axis=0)
-            label = "sum" if j==0 else None
-            ax.plot(rate.time, S/self.norms[j], ".", c="0.5", label=label)
+        if plot_sum:
+            for j, rate in enumerate(self.rates):
+                # calculate the sum over the plotted data only
+                S = np.sum(rate.data_mean[plot_columns], axis=0)
+                label = "sum" if j==0 else None
+                ax.plot(rate.time, S/self.norms[j], ".", c="0.5", label=label)
 
 
         if self.fitfunc != None and self.fitparam != None:
