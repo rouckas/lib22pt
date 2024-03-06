@@ -535,7 +535,7 @@ class MultiRate:
         for key in metadata.keys():
             metadata[key].to_excel(writer, key)
 
-        writer.save()
+        writer.close()
 
     def _errfunc(self, p, bounds={}):
 
