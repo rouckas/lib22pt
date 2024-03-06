@@ -233,7 +233,11 @@ def w_avg_std(x, w, dropnan=False):
     xm = N.dot(w,x)/sum_w
 
     # https://en.wikipedia.org/wiki/Weighted_arithmetic_mean#Reliability_weights
-    var = sum_w/(sum_w**2 - sum_w2) * N.sum(w * (x - xm)**2) # unbiased sample variance -
+    if sum_w**2 - sum_w2 == 0.:
+        # this should happen for zero weights only (?). Return the upper estimate of the error
+        var = max(1/sum_w, N.std(x))
+    else:
+        var = sum_w/(sum_w**2 - sum_w2) * N.sum(w * (x - xm)**2) # unbiased sample variance -
     N_eff = sum_w**2/sum_w2
     var_avg = var/N_eff # variance of the mean - scaled by the effective sample size Neff = sum_w**2/sum_w2
 
