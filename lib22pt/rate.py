@@ -347,6 +347,7 @@ class MultiRate:
         if logx: ax.set_xscale("log")
         ax.legend(loc="lower right", fontsize=5)
         ax.set_title(comment, size=8)
+        ax.grid()
 
         if self.fitresult is not None:
             f.text(0.1, 0.44, "p-value = %.2g\n"%self.fitpval
@@ -364,6 +365,7 @@ class MultiRate:
             ax2.set_title("weighted residuals", size=7)
             ax2.set_xlabel(r"$t (\rm s)$", size=7)
             ax2.set_ylabel(r"$R/\sigma$", size=7)
+            ax2.grid()
 
 
         f.savefig(fname, dpi=200)
