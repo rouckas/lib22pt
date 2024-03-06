@@ -592,6 +592,12 @@ class MultiRate:
 
         p0 = model.init_params(p0)
 
+        # check that the number of columns matches the number of columns
+        # from the fit function
+        _fit = np.array(model.func(p0, self.rates[0].time))
+        if len(columns) != _fit.shape[0]:
+            raise(ValueError("the number of fit columns does not match the number returned by the fit function"))
+
         # use custom implementation of bounded parameters, which can
         # estimate errors even if the parameter is "forced" outside the interval
         # idea: detect if fitted parameter is close to boundary, then make it fixed...
