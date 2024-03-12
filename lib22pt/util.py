@@ -2,6 +2,23 @@ import numpy as np
 import os
 
 
+_verbosity = 2
+def set_verbosity(level):
+    """
+        0: serious/unrecoverable error
+        1: recoverable error
+        2: warning
+        3: information
+    """
+    global _verbosity
+    _verbosity = level
+
+
+def warn(message, level):
+    if level <= _verbosity:
+        print(message)
+
+
 def concentration(temp, Paml22PT, f_22PT, PamlSIS=0., f_SIS=0., amltemp=300):
     """Calculate gas number density in the trap [cm^-3] from outside pressure in Pa
     
@@ -296,3 +313,12 @@ def print_banner(text, ch='#', length=78):
 def ensure_dir(d):
     if not os.path.exists(d):
         os.makedirs(d)
+
+
+def dict2Params(dic):
+    from lmfit import Parameters
+    if isinstance(dic, Parameters): return dic.copy()
+    p = Parameters()
+    for key, val in dic.items():
+        p.add(key, value=val)
+    return p

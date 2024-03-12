@@ -1,4 +1,5 @@
 import numpy as np
+from .util import warn
 
 # 2013-10-31 Added MultiRate class, simplified fitting methods, removed full_output parameter
 # 2014-12-18 Add loading of Frequency, Integration time and Iterations, calculate lower
@@ -6,20 +7,6 @@ import numpy as np
 # 2015-01-28 Simplified fitting again. Needs more work
 # 2015-03-02 Added functions for number density calculation
 
-_verbosity = 2
-def set_verbosity(level):
-    """
-        0: serious/unrecoverable error
-        1: recoverable error
-        2: warning
-        3: information
-    """
-    global _verbosity
-    _verbosity = level
-
-def warn(message, level):
-    if level <= _verbosity:
-        print(message)
 
 
 def fitter(p0, errfunc, args):
@@ -42,14 +29,6 @@ def fitter(p0, errfunc, args):
     pval = 1-chi
     return result.params, pval, result
 
-def dict2Params(dic):
-    from lmfit import Parameters
-    if isinstance(dic, Parameters): return dic.copy()
-    p = Parameters()
-    for key, val in dic.items():
-        p.add(key, value=val)
-    return p
-P = dict2Params
 
 
 class Rate:

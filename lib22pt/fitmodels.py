@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.integrate import odeint
-from .rate import dict2Params as P
+from .util import dict2Params as P
 
 class BaseModel:
     def set_params(self, params):
