@@ -288,7 +288,7 @@ def plot_avg_shifted(data_avg, name, ax, xfun=lambda x:x, plotargs=dict(label=""
 
 
 def plot_shifted(data, name, ax, xfun=lambda x:x, plotargs=dict(label="", color="k", fmt="o", zorder=2)):
-    ax1.errorbar(xfun(data["T22PT_shift"]), data[name+"_shift"],
+    ax.errorbar(xfun(data["T22PT_shift"]), data[name+"_shift"],
             yerr=data[name+"_shift_err"],
             **plotargs)
 
