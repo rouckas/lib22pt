@@ -83,6 +83,79 @@ def langevin(alpha, m1, m2, aunit="A3"):
     return 1e6*k_SI
 
 
+def k_ADO(T, alpha, muD, m1, m2, aunit="SI", munit="SI", method="Su_Chesnavich"):
+    """Calculate capture rate coefficient of ion-polar-molecule collisions
+    within the Average Dipole Orientation (ADO) theory. A good source of the neutral
+    data is the NIST CCCBDB https://cccbdb.nist.gov/exp1x.asp
+
+    Args:
+        T: temperature, can be numpy array
+        alpha: neutral polarizability (in SI (C2 m2 J-1) by default)
+                for H2O, alpha = 9.93 # au https://doi.org/10.1103/PhysRevLett.94.013204
+                for NH3, alpha = 14.19 # au https://doi.org/10.1063/1.1673524
+        muD: neutral dipole moment (in SI (C m) by default)
+                for H2O, muD = 0.73 # au https://doi.org/10.1063/1.460471
+                for NH3, muD = 1.476 # Debye https://doi.org/10.1016/S0301-0104(97)00145-6
+        m1, m2: reactant masses [amu]
+        aunit: unit of polarizability, can be:
+            "A3": Angstrom^3
+            "SI": C m^2 V^-1 (default)
+            "au": atomic units, (Bohr radius)^3
+        munit: unit of dipole moment, can be:
+            "Debye": 1e-10 statC Angstrom
+            "SI": C m (default)
+            "au": atomic units, (Bohr radius * q0)^3
+        method: method of calculation. The implemented methods are:
+            "Su_Chesnavich": https://doi.org/10.1063/1.442828 (default)
+            "Bates": https://doi.org/10.1016/0009-2614(81)85405-X
+
+
+    Returns:
+        array of ADO rate coefficients [cm^3 s^-1]
+    """
+    from lib22pt.util import langevin
+    import scipy.constants as sc
+
+    # convert alpha to SI units
+    if aunit == "A3":
+        alpha_SI = alpha * 1e-30 * 4*sc.pi*sc.epsilon_0
+    elif aunit == "SI":
+        alpha_SI = alpha
+    elif aunit == "au":
+        # https://physics.nist.gov/cgi-bin/cuu/Value?auepol|search_for=electronmass
+        b0 = sc.physical_constants["Bohr radius"][0]
+        alpha_SI = alpha * b0**3 * 4*sc.pi*sc.epsilon_0
+    else:
+        raise(ValueError("aunit " + repr(aunit) + " not understood"))
+
+    # convert muD to SI units
+    if munit == "Debye":
+        muD_SI = 1e-21/sc.c*muD
+    elif munit == "SI":
+        muD_SI = muD
+    elif munit == "au":
+        # https://physics.nist.gov/cgi-bin/cuu/Value?auedm
+        b0 = sc.physical_constants["Bohr radius"][0]
+        muD_SI = b0**3 * sc.e * muD
+    else:
+        raise(ValueError("munit " + repr(munit) + " not understood"))
+
+    k_Lang = langevin(alpha=alpha_SI, m1=m1, m2=m2, aunit="SI")
+
+    T = np.atleast_1d(T)
+    if method=="Su_Chesnavich":
+        # (Su and Chesnavich 1982) https://doi.org/10.1063/1.442828
+        x = muD_SI/np.sqrt(2*alpha_SI*sc.k*T)
+        res = 0.4767*x + 0.6200
+        res[x < 2] = (x[x<2] + 0.5090)**2/10.526 + 0.9754
+    elif method=="Bates":
+        # alternate formulation by (Bates 1981) https://doi.org/10.1016/0009-2614(81)85405-X
+        beta = 2*alpha_SI*sc.k*T/muD_SI**2
+        res = 1.105/np.sqrt(np.pi*beta)
+    else:
+        raise(ValueError("method " + repr(method) + " not understood"))
+    return res*k_Lang
+
 
 def decimate(data, bins, add_errs=False):
     """ the data columns are [data_x, data_y, y_err] """
