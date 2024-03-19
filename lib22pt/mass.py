@@ -47,7 +47,7 @@ class Mass:
                 **plotargs)
 
         if decorate:
-            ax.set_yscale("symlog", linthreshy=1, linscaley=0.5)
+            ax.set_yscale("symlog", linthresh=1, linscale=0.5)
             ax.set_xlabel("mass (amu)")
             ax.set_ylabel("counts")
             ax.set_ylim(ymin=0)
