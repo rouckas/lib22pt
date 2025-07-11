@@ -575,7 +575,11 @@ class MultiRate:
         return np.hstack(err)
 
 
-    def fit_model(self, model, p0, columns, mask=slice(None), t0=0., quadratic_bounds=True, boundweight=1e3):
+    def fit_model(self, model, p0, columns, mask=slice(None), t0=0., quadratic_bounds=True, boundweight=1e3, priors={}):
+        # priors represent out prior knowledge of fitting parameters
+        # e.g., priors = {"a":(mean, sigma)}
+        # means that parameter "a" is known to be normally distributed with
+        # mean and sigma
         self.fitfunc = model.func # store the fitfunc for later
         self.model = model
         self.fitcolumns = columns
@@ -599,6 +603,13 @@ class MultiRate:
                 if np.any(np.isfinite([p.min, p.max])):
                     bounds[key] = (p.min, p.max, boundweight)
                     p.set(min=-np.inf, max=np.inf)
+
+        for key, prior in priors.items():
+            if key not in bounds:
+                bounds[key] = (prior[0], prior[0], 1/prior)
+            else:
+                raise(ValueError("simultaneous quadratic bounds and priors not implemented"))
+
 
         # If needed, the normalization factors are appended to the list of
         # fitting parameters
