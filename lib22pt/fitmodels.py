@@ -38,6 +38,21 @@ class DecayTwoExp(BaseModel):
         r1 = p["r1"].value
         return (N0*np.exp(-x*r0) + N1*np.exp(-x*r1), )
 
+class GrowthLoss(BaseModel):
+    params = P({"N0": 1000, "N1": 10, "r": 1, "loss":0})
+
+    def func(self, p, x):
+        print(p.valuesdict())
+        N0 = p["N0"].value
+        N1 = p["N1"].value
+        r = p["r"].value
+        loss = p["loss"].value
+        return (
+            np.exp(-x*loss)*(N1 + N0*r/(loss-r)*(np.exp(-x*(r-loss))-1)),
+            )
+
+
+
 class CPlusPlusTwoExp(BaseModel):
     params = P({
         "Cpp1": 100.,      "Cpp2":10.,
@@ -118,6 +133,25 @@ class ChangeChannel(ChangeChannelBGLoss):
         p.add("loss", value=0, vary=False)
         return p
 
+
+class Change2Channel(BaseModel):
+    params = P({
+        "N0" : 1000.,      "N1": 100.,
+        "N2" : 1.,         "r1": 1.,
+        "r2" : 10.,        "r":20})
+
+    def func (self, p, x):
+        N0 = p["N0"].value
+        N1 = p["N1"].value
+        N2 = p["N2"].value
+        r1 = p["r1"].value
+        r2 = p["r2"].value
+        r = p["r"].value
+        return (
+            np.exp(-x*r)*N0,
+            N0*r1/r*(1-np.exp(-x*r)) + N1,
+            N0*r2/r*(1-np.exp(-x*r)) + N2,
+            )
 
 class ChangeNChannel(BaseModel):
     def __init__(self, N):
