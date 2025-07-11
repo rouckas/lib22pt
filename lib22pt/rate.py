@@ -475,7 +475,11 @@ class MultiRate:
         np.savetxt(filename, to_save)
 
 
-    def save_data_fit_excel(self, filename, time=None, normalize=False, metadata={}):
+    def save_data_fit_excel(self, filename="", time=None, normalize=False, metadata={},
+                            writer=None, sheet_prefix=""):
+        # if writer is not none, it will just add data to the writer without saving
+        # sheet prefix can be used to write multiple rates into one file differentiated
+        # by prefixes
         import pandas as pd
         dfs = []
         for j, rate in enumerate(self.rates):
@@ -495,8 +499,13 @@ class MultiRate:
 
         df = pd.concat(dfs, ignore_index=True)
 
-        writer = pd.ExcelWriter(filename)
-        df.to_excel(writer, "data")
+        if writer is None:
+            if filename == "":
+                raise(ValueError("either filename or writer have to be set"))
+            _writer = pd.ExcelWriter(filename)
+        else:
+            _writer = writer
+        df.to_excel(_writer, sheet_name=sheet_prefix + "data")
 
         if self.fitfunc != None and self.fitparam != None:
             if time is None:
@@ -512,12 +521,13 @@ class MultiRate:
                 name = self.rates[0].ionname[column]
                 df_fit[name] = fit[i]
 
-            df_fit.to_excel(writer, "fit")
+            df_fit.to_excel(_writer, sheet_prefix + "fit")
 
         for key in metadata.keys():
-            metadata[key].to_excel(writer, key)
+            metadata[key].to_excel(_writer, key)
 
-        writer.close()
+        if writer is None:
+            _writer.close()
 
     def _errfunc(self, p, bounds={}):
 
