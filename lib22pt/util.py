@@ -395,6 +395,25 @@ def ensure_dir(d):
     if not os.path.exists(d):
         os.makedirs(d)
 
+def print_full(x):
+    import pandas as pd
+    pd.set_option('display.max_rows', None)
+    pd.set_option('display.max_columns', None)
+    pd.set_option('display.width', 2000)
+    pd.set_option('display.float_format', '{:20,.2f}'.format)
+    pd.set_option('display.max_colwidth', None)
+    print(x)
+    pd.reset_option('display.max_rows')
+    pd.reset_option('display.max_columns')
+    pd.reset_option('display.width')
+    pd.reset_option('display.float_format')
+    pd.reset_option('display.max_colwidth')
+
+def remove_legend_errorbars(ax):
+        from matplotlib import container
+        handles, labels = ax.get_legend_handles_labels()
+        handles = [h[0] if isinstance(h, container.ErrorbarContainer) else h for h in handles]
+        return handles, labels
 
 def dict2Params(dic):
     from lmfit import Parameters
