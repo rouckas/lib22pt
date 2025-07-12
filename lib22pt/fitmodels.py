@@ -110,7 +110,8 @@ class ChangeChannelBGLoss(BaseModel):
         if r != loss:
             return (
                 np.exp(-x*r)*N0 + bg,
-                np.exp(-x*loss)*(N1 + bratio*N0*r/(loss-r)*(np.exp(-x*(r-loss))-1))
+                # np.exp(-x*loss)*(N1 + bratio*N0*r/(loss-r)*(np.exp(-x*(r-loss))-1))
+                np.exp(-x*loss)*N1 + bratio*N0*r/(loss-r)*(np.exp(-x*r)-np.exp(-x*loss))
                 )
         else:
             return (
