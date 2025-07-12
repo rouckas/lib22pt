@@ -56,6 +56,7 @@ def langevin(alpha, m1, m2, aunit="A3"):
             "A3": Angstrom^3 (default)
             "SI": C m^2 V^-1
             "au": atomic units, (Bohr radius)^3
+            "cm3mol":first virial coefficient https://doi.org/10.1063/1.1840728
         
     Returns:
         langevin reaction rate coefficient [cm^3 s^-1]
@@ -76,6 +77,13 @@ def langevin(alpha, m1, m2, aunit="A3"):
     elif aunit == "au":
         b0 = sc.physical_constants["Bohr radius"][0]
         alpha_SI = alpha * b0**3 * 4*sc.pi*sc.epsilon_0
+    elif aunit == "cm3mol":
+        alpha_A3 = alpha/(4/3*np.pi*sc.N_A)*1e24
+        b0 = sc.physical_constants["Bohr radius"][0]
+        alpha_SI = alpha_A3 * 1e-30 * 4*sc.pi*sc.epsilon_0
+    else:
+        raise(ValueError("aunit " + repr(aunit) + " not understood"))
+
 
     # calculate the rate coefficient in SI units
     k_SI = sc.e/(2*sc.epsilon_0)*np.sqrt(alpha_SI/mu_SI)
