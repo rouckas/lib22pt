@@ -521,10 +521,10 @@ class MultiRate:
                 name = self.rates[0].ionname[column]
                 df_fit[name] = fit[i]
 
-            df_fit.to_excel(_writer, sheet_prefix + "fit")
+            df_fit.to_excel(_writer, sheet_name=sheet_prefix + "fit")
 
         for key in metadata.keys():
-            metadata[key].to_excel(_writer, key)
+            metadata[key].to_excel(_writer, sheet_name=sheet_prefix + key)
 
         if writer is None:
             _writer.close()
