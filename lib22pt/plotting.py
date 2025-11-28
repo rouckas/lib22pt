@@ -75,9 +75,15 @@ def set_unit(axis, unit):
         )
     )
 
-def plot_k_T(ax, datasets, metadata, config, to_plot, kcol, Tcol="T22PT_shift", title_reaction="", yscale="linear", xunit=1, yunit=1e-9):
-    #f = plt.figure(figsize=(7,5))
-    #ax = f.add_axes([.17, .12, .79, .8])
+def plot_k_T(ax, datasets, metadata, config, to_plot, kcol, Tcol="T22PT_shift", title_reaction="", yscale="linear", xunit=1, yunit=1e-9,
+             plotargs={}):
+
+    if ax is None:
+        f = plt.figure(figsize=(7,5))
+        ax = f.add_axes([.17, .12, .79, .8])
+    else:
+        f = ax.get_figure()
+
     for ID in to_plot:
         data = datasets[ID].query("good == 'GOOD'")
         color = metadata[ID]["color"]
@@ -85,11 +91,12 @@ def plot_k_T(ax, datasets, metadata, config, to_plot, kcol, Tcol="T22PT_shift", 
         mfc=color
         fmt="o"
         print("plotting", ID)
-        plotargs = dict(color=color, fmt=fmt, mfc=mfc, label=label, zorder=2)
-        plotargs.update(metadata[ID].get("plotargs", {}))
+        _plotargs = dict(color=color, fmt=fmt, mfc=mfc, label=label, zorder=2)
+        _plotargs.update(metadata[ID].get("plotargs", {}))
+        _plotargs.update(plotargs)
         
         ax.errorbar(data[Tcol]/xunit, data[kcol]/yunit, yerr=data[kcol+"_err"]/yunit,
-                     **plotargs)
+                     **_plotargs)
 
     xunitlabel = "10^{%d}"%np.log10(xunit) if xunit != 1 else ""
     yunitlabel = "10^{%d}"%np.log10(yunit) if yunit != 1 else ""
@@ -99,6 +106,8 @@ def plot_k_T(ax, datasets, metadata, config, to_plot, kcol, Tcol="T22PT_shift", 
     ax.set_yscale(yscale)
     ax.grid()
     ax.set_title(title_reaction + " rate coefficient")
+
+    return f, ax
     
 def plot_coeff(ax, datasets, metadata, config, to_plot, ycol, xcol="T22PT_shift",
                 title="", yscale="linear", xunit=1, yunit=1,
