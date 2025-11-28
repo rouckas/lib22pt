@@ -31,9 +31,8 @@ converters_lower = {"T22PT":Tconverter, "note":strconverter, "Viscovac":strconve
 converters = {"T22PT":Tconverter, "note":strconverter, "Viscovac":strconverter, "Plaser_mW":Tconverter, "rate":rateconverter}
 
 
-
 def plot_title(row, mdata, config):
-    T_shift = config["T_shift"]
+    T_shift = mdata["T_shift"]
     Tcol = "T22PT"
 
     title = "$T_{\\rm 22PT} + %.0f\\ {\\rm K} = %.1f\\,\\rm K$   " % (T_shift, row["T22PT"]+T_shift) 
@@ -54,12 +53,10 @@ def fit_dataset(data, mdata, config, ID, fit_methods, plot_title=plot_title):
 
     if refit:
         fitrange = mdata.get("fitrange", (0, None))
-        p0 = dict2Params(mdata.get("p0"))
         fitmask = np.s_[fitrange[0]:fitrange[1]]
-        columns = mdata["columns"]
         method = mdata["method"]
 
-        ensure_dir(config["fitdir"])
+        ensure_dir(config["paramdir"])
         ensure_dir(config["ratefitdir"] + "/" + ID + "/")
         if plot:
             rateplotdir = config["rateplotdir"]+"/"+ID+"/"
@@ -71,7 +68,7 @@ def fit_dataset(data, mdata, config, ID, fit_methods, plot_title=plot_title):
                 continue
             
             print(d["rate"])
-            p0 = _p0[method]
+            p0 = mdata.get("p0", _p0[method])
             R = MultiRate(config["ratedir"] + "/" + d["rate"], t_offset=config.get("t_offset", 0.))
 
             if data.loc[i, "good"] != "NOFIT":
@@ -83,20 +80,26 @@ def fit_dataset(data, mdata, config, ID, fit_methods, plot_title=plot_title):
                 data.loc[i, new_data.keys()] = new_data.values()
 
             if mdata.get("reuse_p", False) and R.fitresult is not None:
-                print("saving p0")
+                # print("saving p0")
                 p0 = R.fitresult.params
             if plot:
                 plotname = splitext(basename(d["rate"]))[0] + config["plotext"]
                 title = plot_title(data.loc[i], mdata, config)
                 R.plot_to_file(rateplotdir+plotname, comment=title, plot_columns=mdata.get("plot_columns", mdata["columns"]))
-            data.to_excel(config["fitdir"] + "/" + ID + ".xlsx", sheet_name="Sheet1")
+            data.to_excel(config["paramdir"] + "/" + ID + ".xlsx", sheet_name="Sheet1")
             R.save_data_fit_excel(config["ratefitdir"] + "/" + ID + "/" + splitext(basename(d["rate"]))[0] + ".xlsx",
                 metadata={"params": data.loc[i], "metadata": pd.Series(mdata), "config": pd.Series(config),
                           "fitparams":pd.Series(R.fitresult.params.valuesdict() if R.fitresult is not None else {}, dtype=np.float64)})
           
           
     else:
-        fitresults = pd.read_excel(config["fitdir"] + "/" + ID + ".xlsx", "Sheet1", index_col="_rate")
+        fitresults = pd.read_excel(config["paramdir"] + "/" + ID + ".xlsx", "Sheet1")
+        # If you want to index by the rate name later, you may set the index in data.py as:
+        #   datasets[ID]["_rate"] = datasets[ID]["rate"]
+        #   datasets[ID].set_index("_rate", inplace=True)
+        # and then read the data here as
+        # fitresults = pd.read_excel(config["paramdir"] + "/" + ID + ".xlsx", "Sheet1", index_col="_rate")
+
         for c in fitresults.columns:
             if c not in data.columns:
                 data[c] = fitresults[c]
