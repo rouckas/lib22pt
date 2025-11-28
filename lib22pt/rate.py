@@ -70,27 +70,27 @@ class Rate:
             if len(toks) == 0:
                 continue
             if state == 0:
-                if re.search("Period \(s\)=", line):
-                    frequency = 1/float(re.search("Period \(s\)=([0-9.]+)", line).group(1))
+                if re.search("Period \\(s\\)=", line):
+                    frequency = 1/float(re.search("Period \\(s\\)=([0-9.]+)", line).group(1))
                 if re.search("Frequency=", line):
                     frequency = float(re.search("Frequency=([0-9.]+)", line).group(1))
-                if re.search("Integration time \(s\)", line):
-                    integration = float(re.search("Integration time \(s\)=([0-9.]+)", line).group(1))
+                if re.search("Integration time \\(s\\)", line):
+                    integration = float(re.search("Integration time \\(s\\)=([0-9.]+)", line).group(1))
                 if re.search("Number of Points=", line):
-                    npoints = int(re.search("Number of Points=(\d+)", line).group(1))
+                    npoints = int(re.search("Number of Points=(\\d+)", line).group(1))
                 if re.search("Number of Iterations=", line):
-                    self.niter = int(re.search("Number of Iterations=(\d+)", line).group(1))
+                    self.niter = int(re.search("Number of Iterations=(\\d+)", line).group(1))
                 if toks[0] == "[Ion":
                     nions += 1
                 if re.search("^Iterations=", line) :
-                    ioniter.append(int(re.search("Iterations=(\d+)", line).group(1)))
+                    ioniter.append(int(re.search("Iterations=(\\d+)", line).group(1)))
                 if re.search("^Name=", line) :
                     ionname.append(re.search("Name=(.+)$", line).group(1).strip('\"'))
 
             if toks[0] == "Time":
                 iontoks = line.split("\t")[1:]
                 if len(iontoks) != nions:
-                    print("Corrupt file", fname, "Wrong number of ions in the header. Trying to recover")
+                    warn("Corrupt file " + fname + " Wrong number of ions in the header. Trying to recover", 1)
                     # Assume that the Time header is correct:
                     nions = len(iontoks)
                     ioniter = ioniter[:nions]
