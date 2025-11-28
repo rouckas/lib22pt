@@ -357,41 +357,7 @@ def shift_T(df, Tcol, ncols, kcols, T_shift, T_e_low, T_e_high, sys_only=False):
     return
 
 
-def plot_avg_shifted(data_avg, name, ax, xfun=lambda x:x, plotargs=dict(label="", color="k", fmt="o", zorder=2), errorbar=True, err="err"):
-    if errorbar:
 
-        if err=="avgerr":
-            print("ERROR = ")
-            print(data_avg[name+"_shift_lo"+err])
-        ax.errorbar(xfun(data_avg["T22PT_shift"]), data_avg[name+"_shift"],
-            yerr=np.vstack((
-                data_avg[name+"_shift_lo"+err],
-                data_avg[name+"_shift_hi"+err]
-            )),
-            xerr=np.vstack((
-                -xfun(data_avg["T22PT_shift"]-data_avg["T22PT_shift_loerr"]) + xfun(data_avg["T22PT_shift"]),
-                 xfun(data_avg["T22PT_shift"]+data_avg["T22PT_shift_hierr"]) - xfun(data_avg["T22PT_shift"])
-                 )),
-            **plotargs)
-    else:
-        #fmt = plotargs.pop("fmt", "o")
-        ax.errorbar(xfun(data_avg["T22PT_shift"]), data_avg[name+"_shift"], **plotargs)
-
-
-def plot_shifted(data, name, ax, xfun=lambda x:x, plotargs=dict(label="", color="k", fmt="o", zorder=2)):
-    ax.errorbar(xfun(data["T22PT_shift"]), data[name+"_shift"],
-            yerr=data[name+"_shift_err"],
-            **plotargs)
-
-
-def set_unit(axis, unit):
-    """Set units of a matplotlib axis. Usage: set_unit(ax1.yaxis, 1e-9) """
-    from matplotlib.ticker import FuncFormatter
-    axis.set_major_formatter(
-        FuncFormatter(
-            lambda x, pos: np.round(x/unit, decimals=3)
-        )
-    )
 
 
 def print_banner(text, ch='#', length=78):
