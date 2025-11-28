@@ -228,14 +228,15 @@ def polysmooth(points, xdata, ydata, wlen, deg, leastdeg=None, deriv=0, logwindo
     return res
 
 
-def decimate_dataframe(dataframe, bins, refcol="T22PT", errtype="sample_weights", dropnan=True, strcols=["note", "Viscovac"], add_errors=True):
+def decimate_dataframe(dataframe, bins, refcol="T22PT", errtype="sample_weights", dropnan=True,
+                       strcols=["note", "Viscovac", "ID", "rate", "good", "tt"], add_errors=True):
     import pandas as pd
     """decimate pandas dataframe by binning values in refcol into bins.
     See avg.weighted_mean for explanation of the errtype.
     strcols defines the names of columns that should be interpreted as strings, i.e., not averaged
     if add_errors: error estimates are added to numerical columns without error estimates"""
 
-    from lib22pt.avg import w_avg_std, wstd_avg_std, weighted_mean
+    from lib22pt.avg import weighted_mean
     cols_w_errs = []
     cols = list(dataframe.columns)
     for col in dataframe.columns:
@@ -245,8 +246,12 @@ def decimate_dataframe(dataframe, bins, refcol="T22PT", errtype="sample_weights"
             cols.remove(col+"_err")
     cols_wo_errs = cols
 
-    allcols = cols_wo_errs + cols_w_errs
-    averages = pd.DataFrame(index=range(len(bins)-1), columns=dataframe.columns)
+    averages = pd.DataFrame(index=range(len(bins)-1), columns=dataframe.columns, dtype=np.float64)
+    for scol in strcols:
+        if scol in dataframe.columns:
+            averages[scol] = None
+            averages[scol] = averages[scol].astype(str)
+
     for i in range(len(bins)-1):
         indices = (dataframe[refcol] >= bins[i] ) & (dataframe[refcol] < bins[i+1])
         if not np.any(indices): continue
