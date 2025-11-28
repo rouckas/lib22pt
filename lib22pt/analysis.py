@@ -103,6 +103,7 @@ def fit_dataset(data, mdata, config, ID, fit_methods, plot_title=plot_title):
             
 
 def subtract_BG(data, mdata, config, ID, rcols):
+    """ simple constant background rate subtraction. """
     if "good" in data.columns:
         good = data["good"] == "GOOD"
         bg = data["good"] == "BG"
@@ -114,7 +115,11 @@ def subtract_BG(data, mdata, config, ID, rcols):
         if np.count_nonzero(np.isfinite(data[rcol][bg])) == 0:
             warn("BG not found in dataset " + ID + " assuming zero BG", 1)
         else:
-            r_bg, r_bg_err = weighted_mean(data[rcol][bg], std=data[rcol+"_err"][bg], dropnan=True, errtype="sample_weights")
+            if len(data[rcol][bg]) > 1:
+                r_bg, r_bg_err = weighted_mean(data[rcol][bg], std=data[rcol+"_err"][bg], dropnan=True, errtype="sample_weights")
+            else:
+                r_bg = data[rcol][bg].iloc[0]
+                r_bg_err = data[rcol+"_err"][bg].iloc[0]
             data[rcol] -= r_bg
             data[rcol+"_err"] = np.sqrt(data[rcol+"_err"]**2 + r_bg_err**2)
 
