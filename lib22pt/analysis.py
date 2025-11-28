@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from os.path import splitext, basename
 
-from .util import dict2Params, concentration, ensure_dir, warn
+from .util import dict2Params, concentration, ensure_dir, warn, decimate_dataframe
 from .rate import MultiRate
 
 def Tconverter(cell):
@@ -153,3 +153,41 @@ def calculate_k(data, mdata, config, ID, rcols, kcols, ncol, Tcol="T22PT", k3col
         for rcol, kcol in zip(rcols, k3cols):
             data.loc[good, kcol] = data.loc[good, rcol]/n**2
             data.loc[good, kcol+"_err"] = data.loc[good, rcol+"_err"]/n**2
+
+def average_datasets(datasets, datasets_to_avg, bins):
+    if len(datasets_to_avg):
+        averaged = True
+        data_k_to_avg = pd.concat([datasets[ID] for ID in datasets_to_avg])
+        k_avg = decimate_dataframe(data_k_to_avg, bins)
+    else:
+        averaged = False
+        k_avg = None
+        data_k_to_avg = None
+    return averaged, k_avg, data_k_to_avg
+
+def fit_ndeps(datasets, metadata, config, ndeps, rcols, kcols, ncol="nH2_shift"):
+    def f(x, a, b): return a*x + b
+    from scipy.optimize import curve_fit
+
+    ndep_coeffs = []
+    for ID in ndeps:
+        dataset = datasets[ID]
+        Tmean = np.mean(dataset["T22PT_shift"])
+        Tstd = np.std(dataset["T22PT_shift"])
+        metadata[ID]["T22PT_shift"] = Tmean
+        line = {"ID": ID, "T22PT_shift": Tmean, "T22PT_shift_err": Tstd}
+        for kname, ratename in zip(kcols, rcols):
+            kname = kname + "_shift"
+            n_err = metadata[ID]["n_sys_err"]
+            good = (dataset[ratename] > dataset[ratename+"_err"]) & (dataset["good"] == "GOOD")
+            popt, pcov = curve_fit(f, dataset[ncol][good], dataset[ratename][good],
+                sigma = dataset[ratename+"_err"][good] + dataset[ratename][good]*n_err)
+            perr = np.sqrt(np.diag(pcov))
+            line[kname] = popt[0]
+            line[kname+"_err"] = perr[0]
+            line[ratename+"_bg"] = popt[1]
+            line[ratename+"_bg_err"] = perr[1]
+
+        metadata[ID].update(line)
+        ndep_coeffs.append(line)
+    return pd.DataFrame(ndep_coeffs)
