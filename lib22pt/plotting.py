@@ -137,4 +137,32 @@ def plot_coeff(ax, datasets, metadata, config, to_plot, ycol, xcol="T22PT_shift"
     ax.set_yscale(yscale)
     ax.grid(True)
     ax.set_title(title)
-    
+
+def plot_ndeps(datasets, metadata, config, ndeps, rcols, kcols, ncol="nH2_shift",
+        xunit = 1e10, kunit = 1e-9):
+    def f(x, a, b): return a*x + b
+    for ID in ndeps:
+        ensure_dir(config["rateplotdir"] + "/ndeps/")
+
+        fig, ax = plt.subplots(1,1)
+        dataset = datasets[ID]
+        for kname, ratename in zip(kcols, rcols):
+            kname = kname + "_shift"
+            n_err = metadata[ID]["n_sys_err"]
+            good = (dataset[ratename] > dataset[ratename+"_err"]) & (dataset["good"] == "GOOD")
+            ax.errorbar(dataset[ncol][good]/xunit, dataset[ratename][good],
+                        xerr=dataset[ncol][good]*n_err/xunit,
+                        yerr=dataset[ratename+"_err"][good], fmt="o")
+            nrange = np.linspace(dataset[ncol][good].min(), dataset[ncol][good].max())
+            ax.plot(nrange/xunit, f(nrange, metadata[ID][kname], metadata[ID][ratename+"_bg"]))
+            ax.set_xlabel(ncol + "($10^{%d} \\rm cm^{-3}$)"%np.log10(xunit))
+            ax.set_ylabel("$r\\ (\\rm s^{-1})$")
+            ax.text(0.05, 0.9, "$k = (%.2f\\pm%.2f)\\times\\ 10^{%d}\\ \\rm cm^3 s^{-1}$"%
+                    (metadata[ID][kname]/kunit, metadata[ID][kname+"_err"]/kunit, int(np.log10(kunit))),
+                    transform=ax.transAxes)
+            ax.text(0.05, 0.85, "$r_{bg} = (%.2f\\pm%.2f)\\ s^{-1}$"%
+                    (metadata[ID][ratename+"_bg"], metadata[ID][ratename+"_bg_err"]),
+                    transform=ax.transAxes)
+            ax.set_title("ID: " + ID + ", $ T = (%.1f \\pm %.1f^{\\rm stat} \\pm 5^{\\rm sys})\\ \\rm K$" %
+                        (metadata[ID]["T22PT_shift"], metadata[ID]["T22PT_shift_err"]))
+        fig.savefig(config["rateplotdir"] + "/ndeps/" + ID + "_ndep.pdf")
