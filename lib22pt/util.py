@@ -398,3 +398,11 @@ def dict2Params(dic):
     for key, val in dic.items():
         p.add(key, value=val)
     return p
+
+
+def fill_errcols(dataset, errcols):
+    """Fill missing errcols and their errors with nan"""
+    for col in errcols:
+        if col not in dataset.columns:
+            dataset[errcol] = np.nan
+            dataset[errcol + "_err"] = np.nan
