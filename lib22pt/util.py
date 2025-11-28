@@ -109,6 +109,7 @@ def k_ADO(T, alpha, muD, m1, m2, aunit="SI", munit="SI", method="Su_Chesnavich")
             "A3": Angstrom^3
             "SI": C m^2 V^-1 (default)
             "au": atomic units, (Bohr radius)^3
+            "cm3mol":first virial coefficient https://doi.org/10.1063/1.1840728
         munit: unit of dipole moment, can be:
             "Debye": 1e-10 statC Angstrom
             "SI": C m (default)
@@ -133,6 +134,10 @@ def k_ADO(T, alpha, muD, m1, m2, aunit="SI", munit="SI", method="Su_Chesnavich")
         # https://physics.nist.gov/cgi-bin/cuu/Value?auepol|search_for=electronmass
         b0 = sc.physical_constants["Bohr radius"][0]
         alpha_SI = alpha * b0**3 * 4*sc.pi*sc.epsilon_0
+    elif aunit == "cm3mol":
+        alpha_A3 = alpha/(4/3*np.pi*sc.N_A)*1e24
+        b0 = sc.physical_constants["Bohr radius"][0]
+        alpha_SI = alpha_A3 * 1e-30 * 4*sc.pi*sc.epsilon_0
     else:
         raise(ValueError("aunit " + repr(aunit) + " not understood"))
 
